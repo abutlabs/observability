@@ -245,6 +245,23 @@ class Linking(unittest.TestCase):
         self.assertEqual(receiver.refusal_reason("not authorized"), "unauthorized")
         self.assertEqual(receiver.refusal_reason("stream reset"), "other")
 
+    def test_misbehaviour_reports_by_peer_and_reason(self):
+        known = codec.decode_node_info(node_info_bytes())["peer_id"]   # v0's own key
+        other = bytes([0xab] * 32)
+        self.send("peer_misbehaved", {"peer": other, "reason": "Invalid guarantee: No signature from peer"}, 1)
+        self.send("peer_misbehaved", {"peer": other, "reason": "Invalid guarantee: No signature from peer"}, 2)
+        self.send("peer_misbehaved", {"peer": other, "reason": "Bad incoming stream protocol 153"}, 3)
+        self.send("peer_misbehaved", {"peer": known, "reason": "Bad incoming stream protocol 153"}, 4)
+        m = self.m()
+        self.assertEqual(value(m, "jam_peer_misbehaviour_total", peer="abababab",
+                               reason="Invalid guarantee"), 2)
+        self.assertEqual(value(m, "jam_peer_misbehaviour_total", peer="abababab",
+                               reason="Bad incoming stream protocol N"), 1)
+        self.assertEqual(value(m, "jam_peer_misbehaviour_total", peer="v0",
+                               reason="Bad incoming stream protocol N"), 1)
+        self.assertEqual(receiver.short_reason(""), "unspecified")
+        self.assertLessEqual(len(receiver.short_reason("x" * 200)), 60)
+
     def test_forgetting_a_node_after_it_left(self):
         self.send("best_block_changed", {"slot": 5, "hash": sender.h("b")}, 1)
         self.conn.closed()

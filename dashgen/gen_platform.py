@@ -205,6 +205,17 @@ def overview():
              [("sum by (node, client) (increase(jam_reorgs_total{%s}[10m]))" % SEL, "{{node}} · {{client}}")],
              "Best-block changes to a block off the previous best chain (jam_reorgs_total).",
              decimals=0), 12, 6)
+    L.add(table("Misbehaviour reports (JIP-3)", [
+        ("sum by (node, client, peer, reason) (increase(jam_peer_misbehaviour_total{%s}[$__range])) > 0"
+         % SEL, "A")],
+        "Peers each node reported misbehaving over the range, from its JIP-3 peer_misbehaved "
+        "events (jam_peer_misbehaviour_total): node is the reporter, peer the node it named "
+        "(its key's first 8 hex digits when that node sends no JIP-3). Only clients that "
+        "send JIP-3 report; empty is good.",
+        transformations=[{"id": "organize", "options": {
+            "excludeByName": {"Time": True},
+            "renameByName": {"node": "reported by", "Value": "reports"}}}],
+        sort=("reports", True)), 24, 6)
     L.add(runs_table(), 24, 7)
     return dashboard("obs-overview", "Network overview", L)
 

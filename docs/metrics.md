@@ -66,6 +66,7 @@ Types: G gauge, C counter, H histogram.
 | `jam_network_bytes_total` | C | `protocol`, `direction` | Payload bytes sent (`out`) and received (`in`). |
 | `jam_network_request_seconds` | H | `protocol` | Request/response streams (CE), from opening the stream to the complete response. |
 | `jam_network_errors_total` | C | `protocol`, `reason` | Failed connections (`protocol="connection"`) and streams. `reason` is a short fixed vocabulary (`timeout`, `refused`, `reset`, `malformed`, `other`), never free text. |
+| `jam_peer_misbehaviour_total` | C | `peer`, `reason` | Peers this node judged misbehaving. `peer`: the peer's node name where known, else the first 8 hex digits of its Ed25519 key. `reason`: the client's own words, cut to their first clause with digits masked (at most 60 characters), so the set stays small. |
 
 ### Work-packages (guaranteeing)
 
@@ -103,7 +104,8 @@ dashboards still work. The abutlabs observability stack does both:
   and `jam_block_import_seconds` (43 to 47), `jam_wp_received_total` (94),
   `jam_wp_refused_total` (92, 93), `jam_wp_stage_seconds` (90 to 109),
   `jam_refine_seconds` and `jam_refine_gas_total` (101), `jam_assurances_signed_total`
-  (126), `jam_tickets_generated_total` (82), `jam_tickets_transferred_total` (84).
+  (126), `jam_tickets_generated_total` (82), `jam_tickets_transferred_total` (84),
+  `jam_peer_misbehaviour_total` (28).
 
 A derived series carries a `source` label (`jip2`, `jip3`) naming the path it came from.
 A dashboard that aggregates `max by (node) (...)` shows one line per node whichever path

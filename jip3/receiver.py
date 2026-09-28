@@ -31,6 +31,7 @@ import collections
 import ipaddress
 import json
 import os
+import re
 import sys
 import threading
 import time
@@ -57,6 +58,13 @@ STAGES = {94: "receive", 95: "authorize", 101: "refine", 102: "report", 105: "gu
 
 def log(msg):
     print("%s %s" % (time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), msg), flush=True)
+
+
+def short_reason(text):
+    """A misbehaviour report's reason as a bounded label: its first clause, digits masked,
+    at most 60 characters."""
+    t = re.split(r"[:;(\n]", text or "", maxsplit=1)[0].strip()
+    return re.sub(r"\d+", "N", t)[:60] or "unspecified"
 
 
 def refusal_reason(text):
@@ -116,6 +124,10 @@ class JamMetrics:
         self.tickets_transferred = m.counter("jam_tickets_transferred_total",
                                              "Safrole tickets sent (out) or received (in).",
                                              JAM + ("direction",))
+        self.misbehaviour = m.counter("jam_peer_misbehaviour_total",
+                                      "Peers this node reported misbehaving (JIP-3 peer_misbehaved), "
+                                      "by peer (its node name when known, else its key's first 8 hex "
+                                      "digits) and reason.", JAM + ("peer", "reason"))
         self.events = m.counter("jip3_events_total", "JIP-3 events received, by event name.",
                                 LBL + ("event",))
         self.dropped = m.counter("jip3_dropped_events_total",
@@ -282,6 +294,7 @@ class Connection:
             self.error("node_info", error)
             return
         self.cores = info["cores"]
+        self.rx.names[info["peer_id"].hex()] = labels["node"]
         jm.node_info.remove(net=labels["net"], run_id=labels["run_id"], node=labels["node"])
         jm.node_info.labels(
             net=labels["net"], run_id=labels["run_id"], node=labels["node"], client=labels["client"],
@@ -371,6 +384,9 @@ class Connection:
                 if ts >= start:
                     jm.import_seconds.labels(**self._j()).observe((ts - start) / 1e6)
             self.authoring.pop(f["block"], None)
+        elif d == 28:
+            jm.misbehaviour.labels(**self._j(peer=self.rx.peer_name(f["peer"]),
+                                             reason=short_reason(f["reason"]))).inc()
         elif d in (90, 91):
             self.packages.put(eid, {"prev": ts, "guarantee": None})
         elif d == 92:
@@ -428,6 +444,13 @@ class Receiver:
         self.active = {}                    # Connection -> labels
         self.open_count = collections.Counter()   # label key -> open connections
         self.gone = {}                      # label key -> unix time the last one closed
+        self.names = {}                     # peer key (hex) -> node label, from node infos
+
+    def peer_name(self, key):
+        """A peer's node label if a node with that key sent us its node info, else the
+        first 8 hex digits of its key."""
+        h = key.hex() if isinstance(key, (bytes, bytearray)) else str(key)
+        return self.names.get(h, h[:8])
 
     @staticmethod
     def _key(labels):

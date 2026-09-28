@@ -141,6 +141,30 @@ class Runs(Base):
                 run(self.cli, *argv)
 
 
+class Backfill(Base):
+    def test_backfill_writes_a_runs_series_over_its_range(self):
+        run = {"run_id": "n-1", "net": "n", "start": 1000.5, "end": 1100.25}
+        text = self.cli.backfill_text([run], {"job": "obs-lifecycle"}, step=15)
+        lines = text.splitlines()
+        self.assertEqual("# EOF", lines[-1])
+        self.assertEqual(3, sum(1 for x in lines if x.startswith("# TYPE ")))
+        info = [x for x in lines if x.startswith("obs_run_info{")]
+        # the dashboard range: start - 60 s .. end + 60 s, in unix ms on the series
+        self.assertIn('link_from="940500"', info[0])
+        self.assertIn('link_to="1160250"', info[0])
+        self.assertIn('job="obs-lifecycle"', info[0])
+        ts = [int(x.rsplit(" ", 1)[1]) for x in info]
+        self.assertEqual((940, 1160), (ts[0], ts[-1]))
+        self.assertEqual(ts, sorted(ts))
+        start = [x for x in lines if x.startswith("obs_run_start_timestamp_seconds{")]
+        self.assertEqual(len(info), len(start))
+        self.assertTrue(all(" 1000.5 " in x for x in start))
+        # the end timestamp exists only from the run's end on, as the live service exports it
+        end = [int(x.rsplit(" ", 1)[1]) for x in lines if x.startswith("obs_run_end_timestamp_seconds{")]
+        self.assertTrue(end and min(end) >= 1100.25)
+        self.assertEqual(1160, max(end))
+
+
 class Grafana(Base):
     def test_link_carries_the_runs_variables_and_range(self):
         run(self.cli, "register", "n1", "n1-r1", "lasair", "lm0:9615")

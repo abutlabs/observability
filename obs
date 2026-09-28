@@ -18,6 +18,9 @@ Runs (a run id names one life of a net: every series, log line and annotation ca
     obs end NET                   record the end of NET's run; drop its file targets
     obs current NET               NET's run id (exit 1 if none)
     obs runs [--net NET] [--json] the recorded runs, newest first
+    obs backfill [--dry-run]      write the run metrics (obs_run_*) of ended runs that have
+                                  none into Prometheus, over each run's own range: runs that
+                                  ended before the lifecycle service first exported them
 
 Processes on this machine (no container labels to discover them by)
     obs register NET RUN_ID JOB TARGET... [--label k=v]... [--jip2 | --jip3]
@@ -256,8 +259,8 @@ def ready(name, timeout=2):
         return False
 
 
-def query(expr):
-    q = urllib.parse.urlencode({"query": expr})
+def query(expr, at=None):
+    q = urllib.parse.urlencode(dict({"query": expr}, **({"time": "%.3f" % at} if at else {})))
     return http("GET", url("prometheus") + "/api/v1/query?" + q)["data"]["result"]
 
 
@@ -425,6 +428,64 @@ def cmd_runs(a):
     return 0
 
 
+# ---- backfill: run records older than the lifecycle service ---------------------------
+BACKFILL_STEP = 15   # seconds between written samples (the scrape interval)
+
+
+def backfill_text(runs, labels, step=BACKFILL_STEP):
+    """OpenMetrics text of the obs_run_* series the lifecycle service would have exported
+    for these ended runs, a sample every `step` seconds over each run's dashboard range:
+    obs_run_info and the start timestamp throughout, the end timestamp from the end on (it
+    is absent while a run runs). `labels` are the live series' own (job, instance)."""
+    def lb(d):
+        return "{%s}" % ",".join('%s="%s"' % (k, v) for k, v in sorted(dict(labels, **d).items()))
+    fams = {"obs_run_info": [], "obs_run_start_timestamp_seconds": [], "obs_run_end_timestamp_seconds": []}
+    for r in sorted(runs, key=lambda r: r["start"]):
+        frm, to = obslib.run_range(r)
+        ts = list(range(frm // 1000, to // 1000, step)) + [to // 1000]
+        run = {"net": r["net"], "run_id": r["run_id"]}
+        info = lb(dict(run, kind=r.get("kind") or "", link_from=frm, link_to=to))
+        fams["obs_run_info"] += ["obs_run_info%s 1 %d" % (info, t) for t in ts]
+        fams["obs_run_start_timestamp_seconds"] += [
+            "obs_run_start_timestamp_seconds%s %r %d" % (lb(run), r["start"], t) for t in ts]
+        fams["obs_run_end_timestamp_seconds"] += [
+            "obs_run_end_timestamp_seconds%s %r %d" % (lb(run), r["end"], t) for t in ts if t >= r["end"]]
+    out = []
+    for name, lines in fams.items():
+        out += ["# TYPE %s gauge" % name] + lines
+    return "\n".join(out + ["# EOF", ""])
+
+
+def cmd_backfill(a):
+    live = query("obs_run_info")
+    if not live:
+        die("no live obs_run_info: is the stack up (obs up) with its lifecycle service?", 1)
+    labels = {k: live[0]["metric"][k] for k in ("job", "instance") if k in live[0]["metric"]}
+    todo = []
+    for r in all_runs():
+        if not (r.get("start") and r.get("end")):
+            continue
+        sel = 'obs_run_end_timestamp_seconds{run_id="%s"}' % r["run_id"]
+        if not query("count_over_time(%s[5m])" % sel, at=r["end"] + obslib.RUN_MARGIN):
+            todo.append(r)
+    for r in todo:
+        print("backfill %s (%s)" % (r["run_id"], r["net"]))
+    if not todo:
+        print("every ended run has its run metrics")
+        return 0
+    if a.dry_run:
+        return 0
+    text = backfill_text(todo, labels)
+    base = ["docker", "compose", "-p", PROJECT, "-f", os.path.join(HOME, "compose.yml"),
+            "exec", "-T", "prometheus", "sh", "-c"]
+    script = ("cat > /tmp/obs-backfill.om && promtool tsdb create-blocks-from openmetrics "
+              "/tmp/obs-backfill.om /prometheus && rm -f /tmp/obs-backfill.om")
+    rc = subprocess.run(base + [script], input=text.encode()).returncode
+    if rc == 0:
+        print("written; Prometheus loads the new blocks within a minute")
+    return rc
+
+
 def cmd_register(a):
     net, run_id, job = check_name("net", a.net), check_name("run_id", a.run_id), check_name("job", a.job)
     labels = _kv(a.label, "--label")
@@ -577,6 +638,9 @@ def main(argv=None):
     p.add_argument("--json", action="store_true")
     p.add_argument("--limit", type=int, default=50)
     p.set_defaults(fn=cmd_runs)
+    p = sub.add_parser("backfill")
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(fn=cmd_backfill)
     p = sub.add_parser("register")
     p.add_argument("net")
     p.add_argument("run_id")

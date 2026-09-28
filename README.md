@@ -330,15 +330,18 @@ reporting: no data*, an empty Nodes table and a red *Nodes stopped reporting: 6*
   stopped together: a teardown, not a failure.
 - **whole run** opens 19:35:08 → 20:42:43 (times CEST): best and finalized slots climb
   together from 0 to about 1047, and the lifecycle annotations mark the run's begin and
-  end. (This run predates the lifecycle service, so it has no container events; its run
-  record reached the metrics only when the service first read it, so within that range
-  the Run tile says *no run record* and the nodes *net stalled*: with no end recorded yet,
-  the stats describe the range's end, a minute after the net went down.)
+  end. (This run predates the lifecycle service, so it has no container events. Its run
+  record reached the metrics only when the service first read it; `./obs backfill` wrote
+  the run metrics over the run's own range, so the whole run shows the same Run tile and
+  node states. Without that, within that range the Run tile says *no run record* and the
+  nodes *net stalled*: with no end recorded, the stats describe the range's end, a minute
+  after the net went down.)
 
 ## Runs and the CLI
 
 `./obs -h` has every command. The stack: `up`, `down [--wipe]`, `status [-v]`, `ping`,
-`url NAME`. Runs: `new-run`, `begin`, `end`, `current`, `runs`. Host processes: `register`,
+`url NAME`. Runs: `new-run`, `begin`, `end`, `current`, `runs`, `backfill` (run metrics for
+runs that ended before the lifecycle service exported them). Host processes: `register`,
 `unregister`. Grafana: `annotate`, `link`. Batch results: `push`. Run records (start, end,
 net) are kept in `~/.cache/abutlabs-obs/runs/` so a report can link a finished run with
 its exact time range. The lifecycle service reads them too and exports every run of the

@@ -153,7 +153,7 @@ def overview():
             {"id": "thresholds", "value": {"mode": "absolute", "steps": [
                 {"color": "green", "value": None}, {"color": "red", "value": EPOCH_SLOTS + 1}]}}]},
             {"matcher": {"id": "byName", "options": "state"}, "properties": [
-                {"id": "mappings", "value": STATE_MAP},
+                {"id": "mappings", "value": STATE_MAP}, {"id": "custom.width", "value": 170},
                 {"id": "custom.cellOptions", "value": {"type": "color-background"}}]},
             {"matcher": {"id": "byRegexp", "options": "^(last advanced|stopped)$"}, "properties": [
                 {"id": "unit", "value": "dateTimeAsLocalNoDateIfToday"}]},

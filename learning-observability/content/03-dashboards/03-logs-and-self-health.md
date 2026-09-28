@@ -2,9 +2,10 @@
 
 ## Logs (`obs-logs`)
 
-**What did the nodes say?** Every labelled container's output (`source="docker"`) and
-every JIP-3 event a node pushed (`source="jip3"`, one JSON object per event), for the run
-and nodes you pick.
+**What did the nodes say?** Every labelled container's output (`source="docker"`), every
+JIP-3 event a node pushed (`source="jip3"`, one JSON object per event), and the
+containers' lifecycle (`source="lifecycle"`: start, stop, die with its exit code), for the
+run and nodes you pick.
 
 ### Its controls
 
@@ -60,7 +61,7 @@ run selector; it is about the stack.
 | obs services down | 0 | every stack service Alloy scrapes answers |
 | Scrape targets down (info) | (none) | net targets that do not answer; a stopped load generator counts too |
 | Samples failed to write (5 min) | 0 | Alloy could not remote-write to Prometheus |
-| Log entries dropped (5 min) | 0 | Alloy or the JIP-3 receiver dropped log lines instead of writing them to Loki |
+| Log entries dropped (5 min) | 0 | Alloy, the JIP-3 receiver or the lifecycle service dropped log lines instead of writing them to Loki |
 | Prometheus storage (info) | (none) | blocks plus write-ahead log, against the 5 GB cap |
 | netjoin errors (1 h) | 0 | Docker calls netjoin could not make |
 
@@ -74,6 +75,8 @@ run selector; it is about the stack.
 - **JIP-3 receiver**: connected nodes, events per second, decode errors per second.
 - **JIP-2 exporter**: nodes polled, nodes answering, poll errors per second.
 - **netjoin**: networks each collector is attached to, joins and leaves.
+- **lifecycle**: containers tracked, runs exported and Docker API errors, from the
+  lifecycle service.
 - **Pushgateway groups**: result groups batch jobs pushed (one per job and run).
 - **Prometheus series**: active series; a sudden jump usually means a label with too many
   values.

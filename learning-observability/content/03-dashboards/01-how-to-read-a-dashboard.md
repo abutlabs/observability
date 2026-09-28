@@ -6,6 +6,7 @@
 |---|---|---|---|
 | platform | Network overview | `obs-overview` | Which nodes make up this net, what client runs each, and is every node keeping up? |
 | platform | Chain health | `obs-chain` | Is the net one chain that keeps growing and finalizing, on every node? |
+| platform | Node detail | `obs-node` | What happened to this node, and if it stopped, why? |
 | platform | Logs | `obs-logs` | What did the nodes say? |
 | platform | obs self-health | `obs-self` | Is the stack itself collecting? |
 | lasair | lasair node overview | `lasair-node` | Is each lasair node healthy right now? |
@@ -45,13 +46,15 @@ client and application views.
 
 - *Pass/fail stats* say what passes in their title: `Head spread · PASS ≤ 3 slots`,
   `Finality conflicts · PASS = 0`. They turn green when the value passes and red when it
-  fails. Read the colour, then the number, then check whether the run is live or already
-  over: some stats judge a live run and turn red after a planned end (lesson 3.6).
+  fails. Run-scoped ones are read at the run's end once it has ended, not at the range's
+  edge: a finished run keeps showing what was true when it ended, not "no data" now
+  (lesson 3.6).
 - *Info stats* are grey. They give a figure without judging it, like `Peak RSS, any node
   (info)`.
 
-A stat shows the last value in the time range, so a finished run still shows its final
-figure. Stats whose title ends in `(range)` count over the whole time range instead.
+A run-scoped stat shows its last value as of the run's end once it has one, its last value
+in the time range otherwise, so a finished run still shows its final figure, not "no
+data". Stats whose title ends in `(range)` count over the whole time range instead.
 
 **Time series** show how a value moved. Most have one line per node (legend
 `node · client`). A dashed red line is a threshold: the dashed line on *Finality lag per
@@ -68,6 +71,11 @@ Marks on the time axis of every panel:
 - **blue**: a run event (load on, load off, drain, ...);
 - **green**: a PASS verdict;
 - **red**: a FAIL verdict.
+
+On a run-scoped dashboard, the lifecycle service adds the run's and its containers'
+lives, from Docker events: **purple** for the run's begin and end and for a container's
+starts, restarts and stops; **red** for a container killed, OOM-killed or crashed while
+its run was still on. A teardown at the run's own end is purple, not red.
 
 A soak annotates its start, the end of its load, its drain and every verdict line, so you
 can see what the network was doing when a check failed.
@@ -92,7 +100,7 @@ $ python3 dashgen/gen_platform.py --check
 $ echo $?
 0
 $ python3 dashgen/gen_platform.py
-wrote obs-chain.json, obs-logs.json, obs-overview.json, obs-self.json
+wrote obs-chain.json, obs-logs.json, obs-node.json, obs-overview.json, obs-self.json
 ```
 
 Grafana picks up the new JSON within 10 seconds.

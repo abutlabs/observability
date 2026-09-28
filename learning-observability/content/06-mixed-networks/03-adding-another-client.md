@@ -20,7 +20,7 @@ what the dashboards then say.
 
 | Check | Where | Expect |
 |---|---|---|
-| Every node is there | Network overview, *Nodes reporting* | the number you started |
+| Every node is there | Network overview, *Nodes advancing* | the number you started |
 | The client is named | *Clients*, and the `client` column | one more client, spelled consistently |
 | Each node is seen the way you meant | the *paths* column | 1, 2 or 3, matching the paths you set up |
 | Identity is filled | *version*, *GP* | filled for nodes with `/metrics` or JIP-3; empty for JIP-2-only nodes (JIP-2 cannot say) |

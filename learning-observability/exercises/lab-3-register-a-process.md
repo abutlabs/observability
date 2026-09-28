@@ -101,10 +101,11 @@ Now open the Network overview for the run:
 
 Expected on the dashboard:
 
-- *Nodes reporting* 1, *Clients* 1;
-- in the Nodes table, one row: `v0`, `fakeclient`, version `0.0.1`, GP `0.8.0`, a best slot
-  counting up from 100, a finalized slot two behind, *finality lag* 2, *paths* 1
-  (`metrics`: its own endpoint);
+- *Nodes advancing* 1, *Clients* 1;
+- in the Nodes table, one row: `v0`, `fakeclient`, state `advancing`, version `0.0.1`, GP
+  `0.8.0`, a best slot counting up from 100, a finalized slot two behind, *finality lag* 2,
+  *paths* 1 (`metrics`: its own endpoint); `stopped`, `why` and `exit code` are empty, since
+  lifecycle only tracks Docker containers and this process runs directly on your machine;
 - *Best slot per node*: one line climbing a step every 6 seconds.
 
 Mark the moment:
@@ -117,17 +118,22 @@ A blue mark appears on the graphs (refresh within 10 seconds).
 
 ## 4. Stop it, and read what the dashboards say
 
-Stop the fake node with Ctrl-C in the first terminal. Within about a minute:
+Stop the fake node with Ctrl-C in the first terminal. Do not run `./obs end` yet. Within
+about a minute (`STOP_GRACE`, 60 s):
 
 - `./obs status -v` shows `v0` as `DOWN`;
-- on the Network overview, the best-slot line ends, and **Nodes stopped reporting (15
-  min)** turns red at 1.
+- on the Network overview, the best-slot line ends, the **Run** tile turns red: *net
+  stalled since HH:MM:SS — run not ended* (there is no end record, since you have not run
+  `./obs end`), and the Nodes table's `v0` row turns state `net stalled`, not *stopped
+  during the run*.
 
-That is the same stat as in lesson 3.6, and this time it is a real stop: one node, no
-`down` annotation, no verdict. Walk the drill-down path: which node, since when, what else
-happened then (your own annotation), and why (you pressed Ctrl-C). After 15 minutes the
-query itself stops counting the node, but the stat shows the last value in the time range,
-so it stays red for as long as that red stretch is inside the range you are looking at.
+*Stopped during the run* (lesson 3.6) needs another node still advancing to fall behind;
+with one node, there is no "rest of the net" to compare against, so a lone node that goes
+quiet always reads *net stalled*, never red-for-that-node. Open **Node detail** for `v0`:
+*State* also says `net stalled`, but *Why it stopped* stays `not stopped` — lifecycle has
+no Docker event for this process, so it cannot say why, only the metrics can say that it
+went quiet. Walk what is left of the drill-down path: which node, since when (`last
+advanced`), what else happened then (your own annotation), and why (you pressed Ctrl-C).
 
 ## 5. Clean up
 

@@ -18,11 +18,20 @@ Two flows, one for numbers and one for text.
 
    a container's output (stdout, stderr) ──▶ Alloy ─────────────────▶ Loki ──▶ Grafana
    JIP-3 node ──pushes──▶ jip3-receiver ── one JSON line per event ──▶ Loki
+   Docker events, a container's stats ──▶ lifecycle ── one JSON line per event ──▶ Loki
+                                            (also its own /metrics, scraped by Alloy)
 ```
 
-And one helper behind the scenes: **netjoin** puts Alloy and the two JAM collectors on the
-Docker network of every JAM network that has a labelled container, so they can reach its
-containers by name.
+lifecycle does not sit on the metrics flow above it: it watches the Docker events and
+stats API directly (not a node's `/metrics`), and the run records `obs begin`/`obs end`
+write, then serves its own `/metrics` (scraped like any other target) and writes to Loki
+in the same step. It is how a stopped container's reason and a run's start and end become
+data (lesson 1.1, lesson 3.6).
+
+And two helpers behind the scenes: **netjoin** puts Alloy and the two JAM collectors on
+the Docker network of every JAM network that has a labelled container, so they can reach
+its containers by name; **lifecycle** needs no such attachment, since the Docker socket
+already sees every container on every network.
 
 A JAM node gets in through whichever of three paths its client supports (the first three
 lines of the metrics flow):
@@ -70,6 +79,9 @@ Without the stack running, the labels do nothing and the network runs as before.
 | a line a container prints | Alloy (Docker logs) | Loki, with `source="docker"` |
 | a soak's verdict | Pushgateway → Alloy | Prometheus, grouped by `job` and `run_id` |
 | an annotation (`./obs annotate`) | Grafana's API | Grafana, drawn on every dashboard of that run |
+| a container's Docker event (start, stop, die, oom, kill) | lifecycle → Alloy (scrape) | Prometheus, as `obs_container_*` series |
+| the same event | lifecycle | Loki, as one JSON line with `source="lifecycle"` |
+| a run record (`obs begin`, `obs end`) | lifecycle → Alloy | Prometheus, as `obs_run_*` series |
 
 ## Processes on your machine
 

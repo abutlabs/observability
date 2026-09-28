@@ -55,19 +55,32 @@ So the order of events is: **rounds fill up at minute 21, refusals start at minu
 The refusals are downstream. Something made rounds stop keeping up about ten minutes
 before the DEX began turning orders away.
 
-## Clue 4: the headline tile said everything was fine
+## Clue 4: the live gauge said everything was fine
 
-The *Clearing SLO · PASS ≥ 0.9999* tile at the top is green, and its graph reads 1 on every
-sample of this run:
+At the time of this run, the DEX dashboard's headline tile *was* the DEX's own live gauge,
+and it read green throughout:
 
 ```promql
 min(jamswap_order_clearing_slo{run_id="lasair6-20260928T153915Z"})
 ```
 
 The DEX computes that gauge from orders that have **ended**. The 289 orders that were never
-settled never ended, so they never counted as missed. The soak's verdict, taken at the end
-with a 600-second limit, found them. Note it and move on: the tile is an early warning for
-orders that fail, not for orders that wait.
+settled never ended, so they never counted as missed. It read 1 on every sample of this
+run, never dipping, while the backlog behind it grew for the rest of the run. The soak's
+verdict, taken at the end with a 600-second limit, found them: **0.6643**.
+
+That gap is why the dashboard now separates the two. Open the DEX dashboard's top row
+today: the headline is **Clearing SLO (soak verdict)**, reading the pushed
+`soak_check_value{check="clearing_slo"}` — for this run, once the soak had judged it,
+**0.6643, FAIL, red**. The gauge above is still there, relabelled **Cleared of settled
+orders (live, info)**, grey and unjudged, because it is still blind to orders that never
+end. Beside it, **Orders open too long · PASS = 0** would have shown the 289 stuck orders
+building while the run was still going, not just at its end — had this run happened after
+that metric existed. It does not: `jamswap_order_open_stale` was added after this build,
+so the panel has no data for it, the same way the lasair anchor-age panel does not
+(lesson 3.4). Note the live gauge's blind spot and move on: it is an early warning for
+orders that fail, not for orders that wait; the verdict and *Orders open too long* are
+what catch the wait.
 
 ## Reading the clues together
 

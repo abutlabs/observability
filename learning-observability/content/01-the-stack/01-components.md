@@ -1,4 +1,4 @@
-# The eight services
+# The nine services
 
 ## In one breath
 
@@ -14,6 +14,7 @@ Think of the stack as a small newsroom for your network:
 | **JIP-3 receiver** | a translator: listens to JAM nodes that *send* telemetry, and turns it into numbers and log lines |
 | **JIP-2 exporter** | a translator the other way round: *asks* JAM nodes about their chain and turns the answers into numbers |
 | **netjoin** | the plumber: connects the reporter and the translators to each network's private Docker network |
+| **lifecycle** | the obituary desk: watches Docker events and the run records, and says why a container stopped |
 
 The rest of this lesson takes them one at a time. If a word is new, it is probably in
 [The words you need](../00-welcome/02-the-words-you-need.md).
@@ -21,8 +22,8 @@ The rest of this lesson takes them one at a time. If a word is new, it is probab
 ## What runs
 
 The stack is one Docker Compose project (named `obs`, from [`compose.yml`](../../../compose.yml))
-with eight services: eight containers that start and stop together. Nothing is built:
-every service is a stock image, and the three JAM-specific ones are small
+with nine services: nine containers that start and stop together. Nothing is built:
+every service is a stock image, and the four JAM-specific ones are small
 standard-library Python programs on `python:3.12-alpine`.
 
 | Service | Image | Port on your machine | Role |
@@ -35,6 +36,7 @@ standard-library Python programs on `python:3.12-alpine`.
 | jip3-receiver | `python:3.12-alpine` | 9910 | JIP-3 telemetry server for JAM nodes |
 | jip2-exporter | `python:3.12-alpine` | none | Polls JAM nodes' JIP-2 RPC |
 | netjoin | `python:3.12-alpine` | none | Attaches the collectors to each network's Docker network |
+| lifecycle | `python:3.12-alpine` | none | Watches Docker events and run records; exports why a container stopped |
 
 Every published port binds to `127.0.0.1` (`OBS_BIND`; the JIP-3 port has its own,
 `OBS_JIP3_BIND`), so nothing is reachable from other machines unless you change that.
@@ -117,10 +119,30 @@ labelled container, as soon as its first container is created, and detaches them
 last one stops. On each network they get an alias: `obs-alloy`, `obs-jip2` and `obs-jip3`.
 That is why a containerised node can report to `obs-jip3:9910`.
 
+## lifecycle: why a container stopped
+
+A dashboard can say a node stopped reporting; lifecycle says why. It watches Docker events
+for every container carrying an `org.abutlabs.obs.*` label (create, start, restart, kill,
+oom, stop, die with its exit code, destroy) and the run records `obs begin`/`obs end`
+write, and turns both into Loki lines (`source="lifecycle"`) and metrics:
+`obs_container_running`, `obs_container_last_exit_code`,
+`obs_container_stopped_timestamp_seconds{reason, during_run}`, and, for runs,
+`obs_run_info`, `obs_run_start_timestamp_seconds`, `obs_run_end_timestamp_seconds`. It
+also polls each running container's CPU and memory from the Docker stats API.
+
+`reason` is one of: `oom` (the kernel killed it for memory), `teardown` (stopped and
+removed, or stopped after its run had already ended: the net was shut down on purpose),
+`stopped` (`docker stop` while its run was still active), `killed` (a signal with no
+stop, such as `docker kill`), `crashed` (exited non-zero by itself) or `exited` (exited 0
+by itself). `during_run` is `true` only when the stop was not a teardown and the
+container's run had not yet ended. Node detail and the Network overview's Nodes table
+read this (lesson 3.6). Its own metrics are on port 9914 inside the stack.
+
 ## Security in one paragraph
 
-The stack is for a development machine. Alloy, netjoin and the collectors mount the Docker
-socket (netjoin to attach networks, the others only to read). Ports bind to `127.0.0.1` by
-default. Anonymous Grafana users can view and explore; only admin writes.
+The stack is for a development machine. Alloy, netjoin, lifecycle and the JAM collectors
+mount the Docker socket (netjoin to attach networks, the others only to read). Ports bind
+to `127.0.0.1` by default. Anonymous Grafana users can view and explore; only admin
+writes.
 
 Next: [How the pieces fit together](02-how-it-fits-together.md)

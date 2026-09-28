@@ -47,25 +47,26 @@ Everything below is evidence for or against that one question.
 ```text
  ┌───────────────┬───────────────┬───────────────┬───────────────┬───────────────┐
  │ Nodes stopped │ One head      │ Finality lag, │ Finalized in  │ Finality      │
- │ reporting     │ PASS = all on │ worst node    │ 5 min, slowest│ conflicts     │
- │ (15 min)      │ one block     │ PASS ≤ 12     │ PASS > 0      │ PASS = 0      │
+ │ during the run│ PASS = all on │ worst node    │ 5 min, slowest│ conflicts     │
+ │ PASS = 0      │ one block     │ PASS ≤ 12     │ PASS > 0      │ PASS = 0      │
  │               │               │               │               │               │
- │   6   (red)   │ PASS (green)  │   0  (green)  │  71  (green)  │   0  (green)  │
+ │   0  (green)  │ PASS (green)  │   0  (green)  │  71  (green)  │   0  (green)  │
  └───────────────┴───────────────┴───────────────┴───────────────┴───────────────┘
 ```
 
-Each is a **stat** panel: one number for the time range (the last value in it). Its title
-says what passes; the colour says whether it did. Read them left to right:
+Each is a **stat** panel: one number describing the run (its last value at the run's end,
+once it has one, not literally the range's last moment). Its title says what passes; the
+colour says whether it did. Read them left to right:
 
 - **One head: PASS.** Every node held the same block, compared by its hash.
 - **Finality lag, worst node: 0.** No node's finalized block was behind its best block at
   the end. (Over the hour it never exceeded 3 slots; one epoch, 12, is the limit.)
 - **Finalized in 5 min: 71.** The slowest node's finalized block moved 71 slots in the
-  last five minutes: finality kept going.
+  five minutes before the run ended: finality kept going.
 - **Finality conflicts: 0.** Never two different blocks finalized at one height.
-- **Nodes stopped reporting: 6, red.** All six nodes stopped. That looks alarming, and
-  it is the question Aodh asked when he first saw it. Keep it in mind; the graphs below
-  answer it, and lesson 3.6 is about exactly this kind of moment.
+- **Nodes stopped during the run: 0, green.** All six nodes were still advancing when the
+  run ended; the tile only counts a node that falls silent while the rest of the net keeps
+  going. Lesson 3.6 is about reading this tile and the ones like it.
 
 ## The graphs
 
@@ -109,11 +110,13 @@ the soak. Hover over one to read it. On this run:
 | 17:38:10 to 18:41:13 | green region | `soak PASS` |
 | 18:41:42 | blue | `lasair6 down` |
 
-Now look at where the graphs end: every line stops at about 18:41:40, just before the
-`lasair6 down` mark. The network was switched off, on purpose, after the soak passed. That
-is why the first stat says six nodes stopped reporting: the time range runs a minute past
-the end of the run, and at its last moment no node was reporting any more. A normal end,
-not a failure.
+Now look at where the graphs end: every line stops at about 18:41:26, just before the
+`lasair6 down` mark. The network was switched off, on purpose, after the soak passed, and
+every node was still advancing right up to that moment: none of them fell behind the
+others first. That is why *Nodes stopped during the run* reads 0, even though the time
+range runs a minute past the end of the run and no node is reporting any more by its last
+moment. A normal end, not a failure — and the dashboard says so without you having to
+work it out from the graphs.
 
 ## Reading any dashboard, in five steps
 

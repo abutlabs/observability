@@ -23,6 +23,7 @@ network sit side by side and never mix.
 ./obs end NET              # record its end, drop NET's file targets
 ./obs current NET          # NET's current run id (exit status 1 if none)
 ./obs runs [--net NET]     # the recorded runs, newest first (--json for scripts)
+./obs backfill [--dry-run] # write obs_run_* for ended runs the lifecycle service missed
 ```
 
 `begin` also ends the net's previous run, if one is open. A Docker network passes the id
@@ -39,6 +40,22 @@ the container. A container with no run id label gets `<net>-adhoc`.
 
 Run records (net, start, end) are small JSON files in `~/.cache/abutlabs-obs/runs/`.
 They are what lets a link open a finished run with its exact time range.
+
+The lifecycle service (lesson 1.1) turns each record into `obs_run_info`,
+`obs_run_start_timestamp_seconds` and `obs_run_end_timestamp_seconds` in Prometheus, which
+the Run tile and the "whole run" link read (lesson 3.6). A run that ended before the
+lifecycle service was collecting has a record on disk but none of those series. `obs
+backfill` closes that gap: it finds ended runs with no `obs_run_end_timestamp_seconds` and
+writes what the service would have exported, over each run's own range.
+
+```text
+$ ./obs backfill --dry-run
+every ended run has its run metrics
+```
+
+Run it without `--dry-run` when it lists runs to catch up: it writes their `obs_run_*`
+series into Prometheus and prints `written; Prometheus loads the new blocks within a
+minute`.
 
 ## Processes on your machine: `register`
 

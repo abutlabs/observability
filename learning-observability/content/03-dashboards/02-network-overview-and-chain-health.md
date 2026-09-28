@@ -12,20 +12,28 @@ It is Grafana's home page.
 
 | Stat | Reads | Worry when |
 |---|---|---|
-| Nodes reporting | nodes with a best slot from any path | fewer than you started |
+| Run | the run's record: active, *run ended HH:MM:SS — net shut down* (grey), or *net stalled since HH:MM:SS — run not ended* (red) | red: no node's best slot has moved for a minute and the run has not ended |
+| Nodes advancing | nodes whose best slot moved within a minute of the net's newest move, at the run's end (or now, if it has not ended) | fewer than you started |
 | Clients | distinct `client` values among them | a client you expected is missing |
 | Newest best slot / Newest finalized slot | the highest of each | they stop moving |
 | Head spread · PASS ≤ 3 slots | newest best slot minus the oldest | red: some node is more than 3 slots behind |
-| Nodes stopped reporting (15 min) · PASS = 0 | nodes that reported in the last 15 minutes but not now | red: a node died or lost its path |
+| Nodes stopped during the run · PASS = 0 | nodes whose best slot stopped advancing more than a minute before the rest of the net's, within the run | red: a node died or lost its path while the others kept going |
+
+*Nodes stopped during the run* is judged relative to the rest of the net, not against the
+clock: a net shut down all at once at the end of its run stops together and is not
+counted. It never turns red just because the run ended. Lesson 3.6 walks through this.
 
 ### The Nodes table
 
-One row per node: `node`, `client`, `version` and `GP` (from `jam_node_info`), `best slot`,
-`finalized slot`, `finality lag` (red above 12 slots, one epoch on the tiny spec), `peers`
-and `paths`. **paths** is how many ingestion paths describe the node: `metrics` (its own
-`/metrics`), `jip2`, `jip3`. A PolkaJam node with telemetry on shows 2 (JIP-3 and JIP-2).
-Versions come from the node's own metrics or its JIP-3 node information; JIP-2 cannot tell,
-so a JIP-2-only node has an empty version.
+One row per node: `node`, `client`, `state` (*advancing*, *stopped during the run*, or
+*net stalled*), `version` and `GP` (from `jam_node_info`), `best slot`, `finalized slot`,
+`finality lag` (red above 12 slots, one epoch on the tiny spec), `peers`, `paths`,
+`last advanced` (when its best slot last moved), and `stopped`, `why` and `exit code`
+(from the lifecycle service's Docker events, empty if it never stopped in the range).
+**paths** is how many ingestion paths describe the node: `metrics` (its own `/metrics`),
+`jip2`, `jip3`. A PolkaJam node with telemetry on shows 2 (JIP-3 and JIP-2). Versions come
+from the node's own metrics or its JIP-3 node information; JIP-2 cannot tell, so a
+JIP-2-only node has an empty version. Click a row for Node detail (lesson 3.6).
 
 ### The panels below
 
@@ -52,7 +60,7 @@ epoch (12 slots on tiny), and head agreement should read one head.
 
 | Stat | Passes when | How it is computed |
 |---|---|---|
-| Nodes stopped reporting (15 min) | 0 | as on the overview |
+| Nodes stopped during the run | 0 | as on the overview |
 | One head | PASS | `jam_net_one_head` from the JIP-2 exporter (every node up, one block at the common slot, none more than 3 slots behind); without JIP-2, the spread of best slots stands in |
 | Finality lag, worst node | ≤ 12 slots | best slot minus finalized slot, on the node that lags most |
 | Finalized in 5 min, slowest node | > 0 slots | how far the slowest node's finalized block moved in the last 5 minutes; 0 means finality stalled somewhere |
@@ -75,11 +83,11 @@ epoch (12 slots on tiny), and head agreement should read one head.
 The overview tells you *who is there*; Chain health tells you *whether they agree*. A
 typical first look at any run:
 
-1. Overview: the right number of nodes and clients, no red stats, every node's paths as
-   expected.
+1. Overview: the Run tile grey (*run ended ... — net shut down*) or blue (*active*), the
+   right number of nodes and clients, no red stats, every node's paths as expected.
 2. Chain health: five green stats. If one is red, its time series show when and on which
-   node. (On a finished run, *Nodes stopped reporting* turns red once the network is taken
-   down; lesson 3.6 explains why that is normal.)
+   node. *Nodes stopped during the run* stays green on a finished run: a teardown stops
+   every node together and is never counted as a node stopping early (lesson 3.6).
 
 ### What they said about the case study's failing run
 

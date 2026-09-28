@@ -15,11 +15,17 @@ are load it turned away.
 
 | Stat | Passes when | Reads |
 |---|---|---|
-| Clearing SLO | ≥ 0.9999 | `jamswap_order_clearing_slo` from the DEX: of the orders that could trade, the share that did |
+| Clearing SLO (soak verdict) | ≥ 0.9999 | the soak's pushed verdict (`soak_check_value{check="clearing_slo"}`): cleared ÷ (cleared + missed + stuck open) over orders that could trade. Empty until a soak of this run has judged it. |
+| Cleared of settled orders (live, info) | | `jamswap_order_clearing_slo`, the DEX's running tally: filled ÷ (filled + expired, lost, rejected, partially cancelled) over orders that **reached an end**. A backlog of still-open orders does not lower it. |
+| Orders open too long | = 0 | orders with no event for 10 minutes (resting ones, 10 minutes past their own expiry): what the verdict counts as stuck open, as it builds |
 | Load turned away | ≤ 0.01% | the load generator's errors plus busy replies, over its offered operations |
 | Settle timeouts | 0 | rounds that timed out waiting to settle |
 | Settlements reverted | 0 | settlements undone |
 | Clear latency p99, 10 min (info) | | placement to durable fill |
+
+The headline is the soak verdict, not the live gauge. The live gauge only ever sees orders
+that finished, so it reads 1.0 while a backlog silently builds; watch **Orders open too
+long** beside it for that.
 
 ### The panels
 
@@ -29,8 +35,10 @@ are load it turned away.
   orders.
 - **Orders placed and terminal (per s)**: placed against how they ended (`filled`,
   `expired`, ...).
-- **Clearing SLO** over time, and **Clearing latency**: p50 and p99 from placement to
-  fill, and settle latency by op.
+- **Cleared of settled orders (live)** over time, and **Orders open, and open too long**:
+  live orders by phase, those silent past the grace period, and how long the oldest has
+  gone without an event.
+- **Clearing latency**: p50 and p99 from placement to fill, and settle latency by op.
 - **Refused (per min, by op)**, and API errors (5xx) by route.
 - **Round sizes**: the average number of orders per round, by market, with orders in
   flight and orders waiting in the mempool.
@@ -46,16 +54,17 @@ pinned at 48 with a growing mempool is a system falling behind.
 
 ### A gauge that only counts what has ended
 
-The Clearing SLO stat reads a gauge the DEX computes: cleared over (cleared + missed),
-among marketable orders **that reached an end state**. An order stuck open is not yet
-counted as missed. The soak's verdict counts it: at the end, any order still open after
-600 seconds is a miss.
+**Cleared of settled orders (live)** is a gauge the DEX computes: cleared over
+(cleared + missed), among marketable orders **that reached an end state**. An order stuck
+open is not yet counted as missed, so it can read `1` while a backlog builds. The soak's
+verdict, which is now the dashboard's headline stat, counts it: at the end, any order
+still open past its grace period is a miss.
 
-On the case study's failing run, the gauge read `1` on every sample, while the soak's
+On the case study's failing run, the live gauge read `1` on every sample, while the soak's
 verdict was 0.6643 (572 cleared, 289 stuck open). The live tile was right about the orders
 that had ended and blind to the ones that never did. **The soak's verdict is the source of
-truth; the live SLO is an early indicator.** When the tile is green but *Turned away* is not
-empty and the mempool keeps growing, believe the mempool.
+truth; the live gauge is an early indicator.** When the live gauge is 1.0 but *Orders open
+too long* is not 0 and the mempool keeps growing, believe the mempool.
 
 ## Soak runs (`obs-soak-runs`)
 

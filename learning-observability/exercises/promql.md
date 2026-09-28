@@ -57,17 +57,31 @@ Network overview.)
 ### A4
 
 ```promql
-count(max by (node) (last_over_time(jam_best_slot{net="$net",run_id="$run_id"}[15m])))
-  - (count(max by (node, client) (jam_best_slot{net="$net",run_id="$run_id"})) or vector(0))
+# LS: per node, the last time (to the minute) its best slot moved, up to $at
+  (max by (node, client) (max_over_time(
+     (timestamp(jam_best_slot{net="$net",run_id="$run_id"})
+       and changes(jam_best_slot{net="$net",run_id="$run_id"}[1m]) > 0)
+   [$__range:15s] @ $at)))
+
+# the tile itself: count(LS < on() group_left() (max(LS) - 60)) or (max(LS) * 0)
 ```
 
 <details>
 <summary>Answer</summary>
 
-Nodes that reported a best slot at some point in the last 15 minutes, minus nodes that
-report one now: the nodes that **stopped reporting**. `or vector(0)` makes "no node reports
-now" count as 0 instead of making the whole expression empty. After a run ends, this reads
-the number of nodes for 15 minutes (lesson 3.6).
+`LS` is one line per node: `changes(...[1m]) > 0` keeps only the samples where the best
+slot just moved, `timestamp(...)` turns each surviving sample into its own Unix time, and
+`max_over_time` over a `[$__range:15s]` subquery keeps the latest one in the range. `@ $at`
+evaluates the whole subquery as of `$at` (the run's end once it has one, else now, lesson
+3.6): a finished run's `LS` is frozen at its end, not "now".
+
+The tile, `count(LS < on() group_left() (max(LS) - 60)) or (max(LS) * 0)`, counts nodes
+whose `LS` trails the net's newest `LS` by more than 60 seconds: nodes that fell behind
+*the rest of the net*, not nodes that are merely old by the clock. `or (max(LS) * 0)`
+turns "no node behind" into 0 instead of leaving the panel with no data. This is *Nodes
+stopped during the run*, Network overview and Chain health (lesson 3.6); a network shut
+down all at once moves every node's `LS` together, so none of them trails the others and
+the count stays 0.
 
 </details>
 

@@ -64,14 +64,14 @@ $ ./obs ping; echo "ping exit $?"
 ping exit 0
 ```
 
-and `docker compose -p obs ps` lists the eight services, all running.
+and `docker compose -p obs ps` lists the nine services, all running.
 
 ## 3. Look around Grafana
 
 Open http://localhost:3300.
 
 1. You land on **Network overview**. It is empty: no network reports yet.
-2. Open the dashboard list. Find the `platform` folder and its four dashboards, and the
+2. Open the dashboard list. Find the `platform` folder and its five dashboards, and the
    `lasair` and `jamswap` folders if your checkouts provided them.
 3. Open **obs self-health**. *obs services down* should be green at 0; *Targets up, by
    job* should show the `obs-*` jobs.

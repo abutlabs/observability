@@ -3,7 +3,7 @@
 
 For clients with no /metrics of their own (and as a cross-check of those that have one),
 it polls each node's JIP-2 RPC (bestBlock, finalizedBlock, syncState, parameters) and
-exports the standard jam_* series (docs/proposals/jam-node-metrics.md) plus the
+exports the standard jam_* series (docs/metrics.md) plus the
 collector's view of the net: how far each node lags, whether the nodes hold one block at
 the common slot, whether finality ever conflicts.
 

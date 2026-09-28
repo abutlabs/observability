@@ -61,7 +61,7 @@ The first rule that applies:
 
 ## Metrics
 
-Standard series (`docs/proposals/jam-node-metrics.md`), each labelled `net`, `run_id`,
+Standard series (`docs/metrics.md`), each labelled `net`, `run_id`,
 `node`, `client` and `source="jip3"`:
 
 | Metric | From |

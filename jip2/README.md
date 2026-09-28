@@ -41,7 +41,7 @@ Per node, labelled `net`, `run_id`, `node`, `client`, `source="jip2"`:
 
 | Metric | Meaning |
 |---|---|
-| `jam_best_slot`, `jam_finalized_slot` | the node's best and latest finalized slot (standard, `docs/proposals/jam-node-metrics.md`) |
+| `jam_best_slot`, `jam_finalized_slot` | the node's best and latest finalized slot (standard, `docs/metrics.md`) |
 | `jam_node_info` | 1; `spec` from the core count (2 `tiny`, 341 `full`); other identity labels empty (JIP-2 does not reveal them) |
 | `jam_node_up` | 1 if the node answered this round |
 | `jam_head_lag_slots` | newest best slot on the net minus this node's |

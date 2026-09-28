@@ -9,8 +9,8 @@
   obs-logs      Logs: every labelled container's output and every JIP-3 event
   obs-self      obs self-health: is the stack itself collecting?
 
-The node dashboards use only the standard jam_* metrics (docs/proposals/
-jam-node-metrics.md), so they work for any client, whichever path supplies a node's
+The node dashboards use only the standard jam_* metrics (docs/
+metrics.md), so they work for any client, whichever path supplies a node's
 series: its own /metrics, the JIP-2 exporter (source="jip2") or the JIP-3 receiver
 (source="jip3"). Several paths can describe one node at once, so every per-node query
 takes `max by (node, client)` across them.

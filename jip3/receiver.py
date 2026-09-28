@@ -9,7 +9,7 @@ connection the receiver:
     Labeler below: the container that connected, the node's own address, a registered
     target, or the node's self-description);
   * decodes every event of the spec (codec.py) and turns them into Prometheus metrics on
-    /metrics: the standard jam_* series (docs/proposals/jam-node-metrics.md, "From JIP-3"),
+    /metrics: the standard jam_* series (docs/metrics.md, "From JIP-3"),
     labelled source="jip3", and raw jip3_* counters;
   * ships every event as one JSON log line to Loki, stream labels
     {net, run_id, node, client, source="jip3"}, timestamped with the event's own time.
@@ -48,7 +48,7 @@ LBL = ("net", "run_id", "node", "client")
 JAM = LBL + ("source",)
 SOURCE = "jip3"
 
-# jam_wp_refused_total{reason}: the proposal's vocabulary, from a failure's free text
+# jam_wp_refused_total{reason}: the documented vocabulary, from a failure's free text
 REFUSAL_KEYWORDS = [("duplicate", "duplicate"), ("unauthori", "unauthorized"),
                     ("authoriz", "unauthorized"), ("anchor", "anchor"), ("queue", "queue_full"),
                     ("full", "queue_full"), ("capacity", "queue_full"), ("refine", "refine")]

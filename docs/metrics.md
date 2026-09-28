@@ -1,6 +1,8 @@
-# Proposal: standard pull metrics for JAM nodes (`jam_*`)
+# The `jam_*` metrics
 
-Status: **draft**, for discussion with the JAM implementer community.
+The metric names, labels and endpoint this stack reads from JAM nodes. Its platform
+dashboards use only these, so they work for any client that exposes them, and the JIP-2
+exporter and JIP-3 receiver derive the same series for clients that don't.
 
 ## Why
 
@@ -9,8 +11,7 @@ so every dashboard is client-specific and a mixed network has no common view. If
 client exposed the same small set of Prometheus metrics, one set of dashboards would
 serve any network, whatever its client mix.
 
-This proposal complements, and does not replace, the two JIPs that already cover node
-observability:
+They complement the two JIPs that already cover node observability:
 
 - [JIP-2](https://github.com/polkadot-fellows/JIPs/blob/main/JIP-2.md) (node RPC): a
   collector polls a node for its chain view.
@@ -107,11 +108,3 @@ dashboards still work. The abutlabs observability stack does both:
 A derived series carries a `source` label (`jip2`, `jip3`) naming the path it came from.
 A dashboard that aggregates `max by (node) (...)` shows one line per node whichever path
 supplied it.
-
-## Open questions
-
-1. Heights: JIP-2 and JIP-3 report slots only. Should heights stay optional?
-2. `jam_peers{role}`: is `validator` / `other` enough, or should peers with an open block
-   announcement stream (JIP-3 status) be a third role?
-3. Should the default port be registered, and should the option name be fixed across
-   clients (as JIP-3 fixes `--telemetry`)?

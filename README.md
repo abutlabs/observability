@@ -101,7 +101,7 @@ Every published port binds to `OBS_BIND` (default `127.0.0.1`).
 ## Three ingestion paths
 
 All three produce the standard `jam_*` series of
-[docs/proposals/jam-node-metrics.md](docs/proposals/jam-node-metrics.md), labelled with
+[docs/metrics.md](docs/metrics.md), labelled with
 `net`, `run_id`, `node` and `client`. A series a collector derives also carries `source`
 (`jip2` or `jip3`). The platform dashboards read `jam_*` only and take
 `max by (node, client)` across paths, so a node shows once whichever paths describe it.
@@ -315,7 +315,7 @@ the first `up`.
 | `lib/obslib.py` | shared by the services: Docker API, the label model, metrics |
 | `dashboards/` | the platform dashboards (JSON, generated) |
 | `dashgen/` | dashboard helpers and the platform generator |
-| `docs/proposals/` | the proposed standard `jam_*` metrics |
+| `docs/metrics.md` | the `jam_*` metrics the dashboards read |
 | `tests/` | `python3 -m unittest discover -s tests` |
 
 ## License

@@ -133,7 +133,8 @@ Everything is an environment variable, read by `./obs`:
 | `OBS_PUSHGATEWAY_PORT` | 9091 | Pushgateway |
 | `OBS_ALLOY_PORT` | 12345 | Alloy's UI |
 | `OBS_JIP3_PORT` | 9910 | JIP-3 ingest |
-| `OBS_BIND` | 127.0.0.1 | the address every port binds to |
+| `OBS_BIND` | 127.0.0.1 | the address every port binds to, except JIP-3's |
+| `OBS_JIP3_BIND` | 127.0.0.1 | the address the JIP-3 port binds to (a node elsewhere needs it opened) |
 | `OBS_GRAFANA_PASSWORD` | obs | admin password; set before the first `up` |
 | `OBS_STATE` | `~/.cache/abutlabs-obs` | targets, run records, generated files |
 | `OBS_PROJECT` | obs | the compose project name |

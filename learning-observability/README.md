@@ -5,7 +5,7 @@
 A course on using this repository's observability stack to monitor and diagnose JAM
 networks, including networks that mix clients. It starts from zero (what a metric is, how
 to read a dashboard) and ends with a real investigation: a DEX soak test on six lasair
-validators that failed after 25 minutes, followed from its first symptom to its cause, the
+validators that began falling behind 20 minutes in, followed from its first symptom to its cause, the
 fix, and the run that proved it.
 
 Every command in it comes from this repository's CLI and scripts, every metric name from

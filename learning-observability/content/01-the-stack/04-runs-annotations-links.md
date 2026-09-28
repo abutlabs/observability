@@ -143,7 +143,8 @@ For a run still going, the link ends at `now` and refreshes every 10 seconds. Fo
 this machine never recorded, `link` finds its net in Prometheus and falls back to the last
 six hours.
 
-`--all` prints one line per dashboard (folder/title, then the link):
+`--all` prints one line per dashboard that has a run selector (folder/title, then the
+link). Abridged, from a machine with lasair's four `lasair-*` dashboards and jamswap's two:
 
 ```text
 platform/Chain health      http://localhost:3300/d/obs-chain?...
@@ -157,7 +158,9 @@ lasair/lasair PVM          http://localhost:3300/d/lasair-pvm?...
 lasair/work-package lifecycle http://localhost:3300/d/lasair-wp?...
 ```
 
-(Links shortened here. Which lines you get depends on the dashboard folders you have.)
+(Links shortened here. Which lines you get depends on the dashboard folders you have:
+with lasair's validator duties and Memory dashboards present, `lasair/lasair validator
+duties` and `lasair/Memory` appear too.)
 
 ## Batch results: `obs push`
 

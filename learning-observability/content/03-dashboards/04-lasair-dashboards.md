@@ -77,8 +77,10 @@ refine call.
 - Per package: guarantor refine time, co-sign time, audit evaluation time, Is-Authorized
   time and gas, error digests by result.
 
-Mean gas per second is `rate(jam_refine_gas_total[5m]) / rate(jam_refine_seconds_sum[5m])`:
-gas used divided by wall time. Higher is faster.
+The *Mean gas/s (range)* stat is
+`sum(increase(jam_refine_gas_total[$__range])) / sum(increase(jam_refine_seconds_sum[$__range]))`:
+gas used divided by wall time, over the whole time range. Higher is faster. The *Refine
+gas/s by service* graph is the same over a moving 5-minute window, with `rate`.
 
 ## lasair validator duties (`obs-lasair`)
 

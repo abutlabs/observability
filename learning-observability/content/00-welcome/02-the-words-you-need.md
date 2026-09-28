@@ -32,6 +32,9 @@ is a list of samples:
  jam_best_slot{node="lm0"}:   18:41:20 → 1040   18:41:25 → 1043   18:41:30 → 1044   ...
 ```
 
+(Real samples from that run. Slots there came faster than one every 6 seconds; lesson 5.5
+comes back to that.)
+
 The labels you will see everywhere in this course are `net` (which network), `run_id`
 (which run of it), `node` (which node) and `client` (which JAM implementation).
 
@@ -50,6 +53,8 @@ Counters end in `_total`, and durations are in seconds and end in `_seconds`.
 Programs do not send their metrics anywhere by default. They show them on a web page,
 usually `/metrics`, and a collector comes and reads that page every few seconds. Reading
 it is called a **scrape**:
+
+For example (illustrative; the exact lines depend on the client and its version):
 
 ```text
   every 5 seconds

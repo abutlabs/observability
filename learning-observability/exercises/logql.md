@@ -170,8 +170,8 @@ On the `lasair-pj` run:
 | pj4 | 6 | 5 | 2 |
 | pj5 | 6 | 5 | 2 |
 
-The reason text names a peer, so the "No signature" complaints split into one row per
-peer named.
+The reason text names a peer, so the "No signature" complaints split into one column
+per peer named.
 
 </details>
 

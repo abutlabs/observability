@@ -16,8 +16,9 @@ The change (in lasair's PVM, not in the DEX and not in the protocol):
 - the interpreter runs in batches of steps instead of one call per step;
 - the gas model's simulation became linear per block instead of rescanning.
 
-The result on the benchmark: a 48-order round refines in **0.58 seconds instead of 14**,
-cold, about **18 times faster**.
+The result on the benchmark: a 48-order round refines in **0.53 seconds instead of 9.42**
+when the program is already loaded (about **18 times faster**, the figure the change is
+known by), and in **0.58 seconds instead of 14.0** from cold (about 24 times).
 
 **And byte-exact.** A faster PVM that computes a different result is worse than a slow one:
 the network would split. So the change was checked against the old interpreter: identical
@@ -37,7 +38,9 @@ LASAIR_IMAGE=<a lasair build with the new PVM> soak/run lasair6 3600
 The network came up at 17:36:08 UTC: run `lasair6-20260928T173608Z`. Its first annotation
 records exactly what ran: `lasair6 up: validators lasair,lasair,lasair,lasair,lasair,lasair;
 lasair lasair:perf-8c62dd5`, a local build of the new PVM. (Annotations like this one are
-how you find out, weeks later, what a run was.)
+how you find out, weeks later, what a run was.) One setting was not recorded: whether the
+nodes used durable storage (`LASAIR_DATA_DIR=/data`) as the failing run did. Strictly, then,
+the two runs are known to differ in one thing and may differ in a second.
 
 ```text
 VERDICT (orders + chain): PASS
@@ -86,7 +89,7 @@ axis: Grafana scales it to the data, so read the numbers, not the height), and *
 guaranteed* holds at about 2.6 to 5.7 work-items a minute throughout the load, where the
 failing run fell to about one.
 
-The refine average, about 0.18 s, is lower than the benchmark's 0.58 s per full round
+The refine average, 0.186 s, is lower than the benchmark's 0.53 to 0.58 s per full round
 mostly because most rounds were not full: in most five-minute windows of the passing run,
 market-1 rounds averaged between 8 and 25 orders. With packages refined in a fraction of a
 second the backlog stays bounded, so rounds stay small, which keeps refines cheap. The loop

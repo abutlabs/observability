@@ -31,8 +31,8 @@ they would go.)
 
 **The chain can be healthy while the thing on top of it fails.** In the case study of this
 course, a six-validator network ran a decentralised exchange for an hour. Every consensus
-check passed: all nodes agreed on one head at every one of 630 samples, 659 slots were
-finalized, and every node held byte-identical exchange state. Yet the exchange refused
+check passed: all nodes agreed on one head at every one of 630 samples, 659 finalized
+slots were checked by hash, and every node held byte-identical exchange state. Yet the exchange refused
 519 of 1,440 orders. Only by watching the whole system, from the order book down to how
 long one validator took to refine one work-package, did the cause show.
 

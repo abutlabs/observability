@@ -102,8 +102,8 @@ rate(jam_best_slot{run_id="lasair6-20260928T153915Z"}[10m])
 `jam_best_slot` is a **gauge**, and `rate` is for counters: it treats every decrease as a
 counter reset, so a re-org that moves the best slot back would show a huge jump. For a
 gauge, use `deriv`, which fits a line through the samples:
-`deriv(max(jam_best_slot{run_id="lasair6-20260928T153915Z"})[10m:])` returns about 0.27 to
-0.30 across that run.
+`deriv(max(jam_best_slot{run_id="lasair6-20260928T153915Z"})[10m:])` returns 0.26 to 0.30
+across that run.
 
 </details>
 

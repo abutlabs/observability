@@ -36,8 +36,8 @@ standard-library Python programs on `python:3.12-alpine`.
 | jip2-exporter | `python:3.12-alpine` | none | Polls JAM nodes' JIP-2 RPC |
 | netjoin | `python:3.12-alpine` | none | Attaches the collectors to each network's Docker network |
 
-Every published port binds to `127.0.0.1` (`OBS_BIND`), so nothing is reachable from other
-machines unless you change that.
+Every published port binds to `127.0.0.1` (`OBS_BIND`; the JIP-3 port has its own,
+`OBS_JIP3_BIND`), so nothing is reachable from other machines unless you change that.
 
 ## Prometheus: the metrics database
 

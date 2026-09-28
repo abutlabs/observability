@@ -129,6 +129,27 @@ rate(lasair_guarantor_refine_seconds_sum{net="$net",run_id="$run_id"}[5m])
 That is the *Refine seconds (average per package)* panel, which you will meet again in the
 case study.
 
+## Subqueries and `deriv`
+
+Two more tools appear in the case study.
+
+A **subquery**, `(expression)[70m:15s]`, evaluates any expression every 15 seconds over the
+last 70 minutes and gives back a range vector, so a function like `max_over_time` can run
+over it. Leave out the step, `[10m:]`, and Prometheus picks one. The case study uses it to
+find the worst five-minute average of a whole run:
+
+```promql
+max_over_time((max(rate(lasair_guarantor_refine_seconds_sum{run_id="$run_id"}[5m])
+  / rate(lasair_guarantor_refine_seconds_count{run_id="$run_id"}[5m])))[70m:15s])
+```
+
+**`deriv`** is the per-second slope of a **gauge** (`rate` is for counters). Slots per
+second:
+
+```promql
+deriv(max(jam_best_slot{run_id="$run_id"})[10m:])
+```
+
 ## When nothing happened
 
 A counter that never incremented may not exist at all, and `sum` of nothing is nothing, so

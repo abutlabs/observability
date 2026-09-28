@@ -129,7 +129,7 @@ Three levers, then:
 3. **Less waiting for a core**: get the guarantee into a block sooner.
 
 Which to pull first? The numbers point at the second. Refine time is the term the
-dashboards showed growing tenfold as the rounds grew (from about 2 s to over 12 s on average, 14 to 27 s for
+dashboards showed growing sixfold as the rounds grew (from about 2 s to over 12 s on average, 14 to 27 s for
 a full round), and the one entirely inside lasair's own code. At about 18M gas per second a
 253M-gas round takes 14 seconds, a large share of what is left of the window when the
 package arrives, however fresh its anchor. The target: make a full round refine fast

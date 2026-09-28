@@ -126,7 +126,8 @@ Stop the fake node with Ctrl-C in the first terminal. Within about a minute:
 That is the same stat as in lesson 3.6, and this time it is a real stop: one node, no
 `down` annotation, no verdict. Walk the drill-down path: which node, since when, what else
 happened then (your own annotation), and why (you pressed Ctrl-C). After 15 minutes the
-stat clears, because the node is outside its 15-minute window.
+query itself stops counting the node, but the stat shows the last value in the time range,
+so it stays red for as long as that red stretch is inside the range you are looking at.
 
 ## 5. Clean up
 

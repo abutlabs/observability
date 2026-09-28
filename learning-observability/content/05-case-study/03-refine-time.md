@@ -10,7 +10,7 @@ Refining is the heavy part, and its cost grows with the round.
 Open **lasair validator duties** for the run. It reads lasair's own metrics, which the
 lasair 2.1.2 nodes exported.
 
-## Clue 5: refine time climbed tenfold
+## Clue 5: refine time climbed sixfold
 
 The panel **Refine seconds (average per package)** is the guarantor worker's average time to
 refine one package, per node:

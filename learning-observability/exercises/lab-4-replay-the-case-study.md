@@ -171,7 +171,7 @@ q "deriv(max(jam_best_slot{run_id=\"$FAIL\"})[10m:])" 1790612000
 ```
 
 About 0.29 slots per second at that moment, and between 0.26 and 0.30 across the run: one
-slot every 3.4 to 3.9 seconds. Lesson 5.5 explains why this matters.
+slot every 3.3 to 3.8 seconds. Lesson 5.5 explains why this matters.
 
 </details>
 

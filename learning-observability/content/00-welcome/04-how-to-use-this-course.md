@@ -81,9 +81,11 @@ link then covers the last six hours instead of the run), put
 ## Two naming generations
 
 lasair adopted the common `jam_*` names after these runs. Where it had its own name for a
-standard metric, a new build still exports the old name too (an alias), but the recorded
-runs have only the old names, and lasair-specific metrics keep their `lasair_` prefix
-either way. Where it matters, a lesson names both: for example `jam_wp_anchor_age_slots`,
+standard metric, a new build still exports the old name too (an alias), but in the
+recorded runs lasair's own series have only the old names, and lasair-specific metrics
+keep their `lasair_` prefix either way. The `jam_*` series those runs do have
+(`jam_best_slot`, `jam_net_one_head` and a few more) came from jamswap's *netwatch*, a
+small service that polled every node's RPC and exported them. Where it matters, a lesson names both: for example `jam_wp_anchor_age_slots`,
 which older builds export as `lasair_ce133_anchor_age_slots`.
 
 ## Checking yourself

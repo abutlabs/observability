@@ -167,7 +167,7 @@
       "id": "05-case-study",
       "number": "5",
       "title": "Case study: a failing soak",
-      "description": "A real investigation: an all-lasair DEX soak that failed after 25 minutes, followed from symptom to cause to proof of the fix.",
+      "description": "A real investigation: an all-lasair DEX soak that began falling behind 20 minutes in, followed from symptom to cause to proof of the fix.",
       "lessons": [
         {
           "id": "01-the-symptom",

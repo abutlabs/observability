@@ -1,0 +1,6 @@
+# obs Prometheus: storage and queries only. It scrapes nothing itself: Grafana Alloy
+# (alloy/config.alloy) is the single collector and remote-writes every sample here
+# (--web.enable-remote-write-receiver in compose.yml). Retention is set on the command
+# line: OBS_RETENTION_TIME (30d) and OBS_RETENTION_SIZE (5GB).
+global:
+  evaluation_interval: 15s

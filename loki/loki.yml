@@ -1,0 +1,58 @@
+# obs Loki: one process, filesystem storage in the `loki` volume. Logs arrive from
+# Grafana Alloy (the labelled containers' output) and from the JIP-3 receiver (node
+# events). Retention: OBS_LOG_RETENTION (default 720h = 30 days), enforced by the
+# compactor. Loki has no size cap; the ingestion limits below bound how fast a noisy
+# node can fill the disk (README.md, "Retention").
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+  log_level: warn
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    - from: 2026-01-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+limits_config:
+  retention_period: ${OBS_LOG_RETENTION:-720h}
+  ingestion_rate_mb: 8
+  ingestion_burst_size_mb: 16
+  per_stream_rate_limit: 2MB
+  per_stream_rate_limit_burst: 8MB
+  max_label_names_per_series: 15
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h
+  allow_structured_metadata: true
+  volume_enabled: true
+
+compactor:
+  working_directory: /loki/compactor
+  compaction_interval: 10m
+  retention_enabled: true
+  retention_delete_delay: 2h
+  delete_request_store: filesystem
+
+pattern_ingester:
+  enabled: false
+
+analytics:
+  reporting_enabled: false

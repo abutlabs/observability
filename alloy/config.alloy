@@ -1,0 +1,254 @@
+// obs: Grafana Alloy, the stack's single collector.
+//
+//   metrics  every container labelled org.abutlabs.obs.scrape=true (Docker discovery),
+//            every file target `obs register` wrote (processes on the host), the obs
+//            services themselves; all remote-written to Prometheus
+//   logs     the output of every labelled container, shipped to Loki
+//
+// The label model (README.md, "Labels"): every series and every log stream carries
+// net, run_id, node and client (and job). The defaults below are the same as
+// lib/obslib.py obs_labels(), which the JIP-2 exporter and the JIP-3 receiver use.
+//
+// Alloy reaches a container by its name, on a network netjoin attached Alloy to
+// (netjoin/netjoin.py). The obs services are reached by their aliases
+// (<project>-<service>, OBS_PROJECT being the compose project) so a net's own
+// "prometheus" or "loki" never shadows them.
+
+// ---- Docker discovery ----------------------------------------------------------------
+discovery.docker "containers" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "5s"
+  // one target per container and exposed port, on the container's first network
+  match_first_network = true
+}
+
+// The label model, applied to every container.
+discovery.relabel "labels" {
+  targets = discovery.docker.containers.targets
+
+  // net: org.abutlabs.obs.net, else the compose project, else "docker"
+  rule {
+    target_label = "net"
+    replacement  = "docker"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    regex         = "(.+)"
+    target_label  = "net"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_org_abutlabs_obs_net"]
+    regex         = "(.+)"
+    target_label  = "net"
+  }
+
+  // node and job: the label, else the compose service, else the container name
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/?(.+)"
+    target_label  = "node"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    regex         = "(.+)"
+    target_label  = "node"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/?(.+)"
+    target_label  = "job"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    regex         = "(.+)"
+    target_label  = "job"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_org_abutlabs_obs_node"]
+    regex         = "(.+)"
+    target_label  = "node"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_org_abutlabs_obs_job"]
+    regex         = "(.+)"
+    target_label  = "job"
+  }
+
+  // client: the label, else the job
+  rule {
+    source_labels = ["job"]
+    target_label  = "client"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_org_abutlabs_obs_client"]
+    regex         = "(.+)"
+    target_label  = "client"
+  }
+
+  // run_id: the label (a net's tooling passes one per run), else "<net>-adhoc"
+  rule {
+    source_labels = ["net"]
+    regex         = "(.+)"
+    replacement   = "$1-adhoc"
+    target_label  = "run_id"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_org_abutlabs_obs_run_id"]
+    regex         = "(.+)"
+    target_label  = "run_id"
+  }
+
+  // instance: the container, not an IP that changes with every restart
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/?(.+)"
+    target_label  = "instance"
+  }
+}
+
+// ---- metrics: labelled containers ----------------------------------------------------
+discovery.relabel "metrics" {
+  targets = discovery.relabel.labels.output
+
+  rule {
+    source_labels = ["__meta_docker_container_label_org_abutlabs_obs_scrape"]
+    regex         = "true"
+    action        = "keep"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_org_abutlabs_obs_port"]
+    regex         = "[0-9]+"
+    action        = "keep"
+  }
+  // by name: one address whatever networks and ports the container has (duplicates of
+  // one container collapse into one target)
+  rule {
+    source_labels = ["__meta_docker_container_name", "__meta_docker_container_label_org_abutlabs_obs_port"]
+    separator     = ";"
+    regex         = "/?([^;]+);([0-9]+)"
+    replacement   = "$1:$2"
+    target_label  = "__address__"
+  }
+  // the default bridge network has no name resolution: by IP there
+  rule {
+    source_labels = ["__meta_docker_network_name", "__meta_docker_network_ip", "__meta_docker_container_label_org_abutlabs_obs_port"]
+    separator     = ";"
+    regex         = "bridge;([^;]+);([0-9]+)"
+    replacement   = "$1:$2"
+    target_label  = "__address__"
+  }
+  // host networking: the port is on the host
+  rule {
+    source_labels = ["__meta_docker_container_network_mode", "__meta_docker_container_label_org_abutlabs_obs_port"]
+    separator     = ";"
+    regex         = "host;([0-9]+)"
+    replacement   = "host.docker.internal:$1"
+    target_label  = "__address__"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_org_abutlabs_obs_path"]
+    regex         = "(/.+)"
+    target_label  = "__metrics_path__"
+  }
+}
+
+prometheus.scrape "containers" {
+  targets         = discovery.relabel.metrics.output
+  forward_to      = [prometheus.remote_write.local.receiver]
+  job_name        = "containers"
+  scrape_interval = "5s"
+  scrape_timeout  = "4s"
+  // a series' own node/client labels win: an exporter that watches other nodes (a
+  // JIP-2 poller, netwatch) labels each series with the node it describes
+  honor_labels = true
+}
+
+// ---- metrics: processes on the host (`obs register`) ---------------------------------
+discovery.file "native" {
+  files            = ["/etc/obs/targets/*.json"]
+  refresh_interval = "5s"
+}
+
+prometheus.scrape "native" {
+  targets         = discovery.file.native.targets
+  forward_to      = [prometheus.remote_write.local.receiver]
+  job_name        = "native"
+  scrape_interval = "5s"
+  scrape_timeout  = "4s"
+  honor_labels    = true
+}
+
+// ---- metrics: the collectors that describe nodes (keep their labels) ------------------
+prometheus.scrape "collectors" {
+  targets = [
+    {"__address__" = sys.env("OBS_PROJECT") + "-pushgateway:9091", "job" = "obs-pushgateway"},
+    {"__address__" = sys.env("OBS_PROJECT") + "-jip3-receiver:9911", "job" = "obs-jip3"},
+    {"__address__" = sys.env("OBS_PROJECT") + "-jip2-exporter:9912", "job" = "obs-jip2"},
+  ]
+  forward_to      = [prometheus.remote_write.local.receiver]
+  job_name        = "collectors"
+  scrape_interval = "5s"
+  scrape_timeout  = "4s"
+  // pushed series keep their job and grouping labels (run_id, net); the receiver's and
+  // the exporter's keep net, run_id, node and client
+  honor_labels = true
+}
+
+// ---- metrics: the stack itself ---------------------------------------------------------
+prometheus.scrape "obs" {
+  targets = [
+    {"__address__" = "localhost:12345", "job" = "obs-alloy"},
+    {"__address__" = sys.env("OBS_PROJECT") + "-prometheus:9090", "job" = "obs-prometheus"},
+    {"__address__" = sys.env("OBS_PROJECT") + "-loki:3100", "job" = "obs-loki"},
+    {"__address__" = sys.env("OBS_PROJECT") + "-grafana:3000", "job" = "obs-grafana"},
+    {"__address__" = sys.env("OBS_PROJECT") + "-netjoin:9913", "job" = "obs-netjoin"},
+  ]
+  forward_to      = [prometheus.remote_write.local.receiver]
+  job_name        = "obs"
+  scrape_interval = "15s"
+}
+
+prometheus.remote_write "local" {
+  endpoint {
+    url = "http://" + sys.env("OBS_PROJECT") + "-prometheus:9090/api/v1/write"
+  }
+}
+
+// ---- logs: labelled containers ---------------------------------------------------------
+discovery.relabel "logs" {
+  targets = discovery.relabel.labels.output
+
+  // shipped: org.abutlabs.obs.logs=true, or scrape=true unless logs=false
+  rule {
+    source_labels = ["__meta_docker_container_label_org_abutlabs_obs_scrape", "__meta_docker_container_label_org_abutlabs_obs_logs"]
+    separator     = ";"
+    regex         = "true;|true;true|[^;]*;true"
+    action        = "keep"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/?(.+)"
+    target_label  = "container"
+  }
+  rule {
+    target_label = "source"
+    replacement  = "docker"
+  }
+  rule {
+    regex  = "instance"
+    action = "labeldrop"
+  }
+}
+
+loki.source.docker "containers" {
+  host             = "unix:///var/run/docker.sock"
+  targets          = discovery.relabel.logs.output
+  forward_to       = [loki.write.local.receiver]
+  refresh_interval = "5s"
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://" + sys.env("OBS_PROJECT") + "-loki:3100/loki/api/v1/push"
+  }
+}

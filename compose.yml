@@ -1,0 +1,184 @@
+# obs: the observability stack JAM networks report into. One compose project, started
+# and stopped with the `obs` CLI next to this file, which sets the paths below:
+#
+#   ./obs up       Grafana http://localhost:3300 (anonymous view), Prometheus :9390,
+#                  Loki :3100, Pushgateway :9091, Alloy :12345, JIP-3 ingest :9910
+#   ./obs down     stop it; the data volumes are kept
+#
+# Every port binds to OBS_BIND (127.0.0.1). Nothing here names a network: a net opts in
+# with container labels (org.abutlabs.obs.*), Grafana Alloy discovers it through the
+# Docker socket, and netjoin attaches the collectors to its network. Projects plug their
+# dashboards in as folders (<project>/observability/dashboards). README.md explains the
+# whole flow.
+
+name: ${OBS_PROJECT:-obs}
+
+x-logging: &logging
+  # the stack's own container logs stay small
+  driver: json-file
+  options: { max-size: "10m", max-file: "3" }
+
+x-python: &python
+  # the obs services are stdlib Python on a stock image: nothing to build
+  image: python:3.12-alpine
+  logging: *logging
+  restart: unless-stopped
+  environment: &python-env
+    PYTHONUNBUFFERED: "1"
+    DOCKER_SOCK: /var/run/docker.sock
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.4.1
+    networks:
+      default:
+        # a name no net shadows, whatever networks netjoin adds (alloy/config.alloy)
+        aliases: ["${OBS_PROJECT:-obs}-prometheus"]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${OBS_RETENTION_TIME:-30d}
+      # a size cap as well, so a month of soaks cannot fill the disk: oldest blocks go first
+      - --storage.tsdb.retention.size=${OBS_RETENTION_SIZE:-5GB}
+      # Grafana Alloy writes every sample here (it is the only scraper)
+      - --web.enable-remote-write-receiver
+      - --web.enable-lifecycle
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus:/prometheus
+    ports: ["${OBS_BIND:-127.0.0.1}:${OBS_PROMETHEUS_PORT:-9390}:9090"]
+    logging: *logging
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.7.8
+    networks: { default: { aliases: ["${OBS_PROJECT:-obs}-loki"] } }
+    command: [-config.file=/etc/loki/loki.yml, -config.expand-env=true]
+    environment:
+      OBS_LOG_RETENTION: ${OBS_LOG_RETENTION:-720h}
+    volumes:
+      - ./loki/loki.yml:/etc/loki/loki.yml:ro
+      - loki:/loki
+    ports: ["${OBS_BIND:-127.0.0.1}:${OBS_LOKI_PORT:-3100}:3100"]
+    logging: *logging
+    restart: unless-stopped
+
+  pushgateway:
+    # batch jobs (a soak's verdict, a benchmark) push their results here; README.md has
+    networks: { default: { aliases: ["${OBS_PROJECT:-obs}-pushgateway"] } }
+    # the contract. Persisted, so results survive a restart until deleted.
+    image: prom/pushgateway:v1.11.3
+    command: [--persistence.file=/data/pushgateway.db, --persistence.interval=1m,
+              --web.enable-admin-api]
+    volumes: [pushgateway:/data]
+    ports: ["${OBS_BIND:-127.0.0.1}:${OBS_PUSHGATEWAY_PORT:-9091}:9091"]
+    logging: *logging
+    restart: unless-stopped
+
+  alloy:
+    # the single collector: scrapes every labelled container and file target, the
+    networks: { default: { aliases: ["${OBS_PROJECT:-obs}-alloy"] } }
+    # Pushgateway and the obs services; ships labelled containers' logs to Loki
+    image: grafana/alloy:v1.20.1
+    command: [run, --server.http.listen-addr=0.0.0.0:12345, --storage.path=/var/lib/alloy/data,
+              --disable-reporting, /etc/alloy/config.alloy]
+    environment:
+      OBS_PROJECT: ${OBS_PROJECT:-obs}
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${OBS_TARGETS:?start the stack with ./obs up}:/etc/obs/targets:ro
+      - alloy:/var/lib/alloy/data
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    ports: ["${OBS_BIND:-127.0.0.1}:${OBS_ALLOY_PORT:-12345}:12345"]
+    depends_on: [prometheus, loki, pushgateway]
+    logging: *logging
+    restart: unless-stopped
+
+  netjoin:
+    # keeps alloy, jip2-exporter and jip3-receiver on every Docker network that has an
+    networks: { default: { aliases: ["${OBS_PROJECT:-obs}-netjoin"] } }
+    # observed container, so they reach it by name (netjoin/netjoin.py)
+    <<: *python
+    command: [python3, /app/netjoin/netjoin.py]
+    environment:
+      <<: *python-env
+      OBS_PROJECT: ${OBS_PROJECT:-obs}
+    volumes:
+      - ./lib:/app/lib:ro
+      - ./netjoin:/app/netjoin:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  jip3-receiver:
+    # JIP-3 telemetry: nodes started with --telemetry HOST:9910 push their events here
+    networks: { default: { aliases: ["${OBS_PROJECT:-obs}-jip3-receiver"] } }
+    <<: *python
+    command: [python3, /app/jip3/receiver.py]
+    environment:
+      <<: *python-env
+      JIP3_LISTEN: 0.0.0.0:9910
+      JIP3_METRICS_PORT: "9911"
+      JIP3_LOKI_URL: http://${OBS_PROJECT:-obs}-loki:3100/loki/api/v1/push
+      JIP3_TARGETS: /etc/obs/targets/jip3/*.json
+    volumes:
+      - ./lib:/app/lib:ro
+      - ./jip3:/app/jip3:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${OBS_TARGETS:?start the stack with ./obs up}:/etc/obs/targets:ro
+    ports: ["${OBS_JIP3_BIND:-127.0.0.1}:${OBS_JIP3_PORT:-9910}:9910"]
+    depends_on: [loki]
+
+  jip2-exporter:
+    # JIP-2: polls the RPC of every node labelled org.abutlabs.obs.jip2 (and file targets)
+    networks: { default: { aliases: ["${OBS_PROJECT:-obs}-jip2-exporter"] } }
+    <<: *python
+    command: [python3, /app/jip2/exporter.py]
+    environment:
+      <<: *python-env
+      JIP2_METRICS_PORT: "9912"
+      JIP2_TARGETS: /etc/obs/targets/jip2/*.json
+    volumes:
+      - ./lib:/app/lib:ro
+      - ./jip2:/app/jip2:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${OBS_TARGETS:?start the stack with ./obs up}:/etc/obs/targets:ro
+    extra_hosts: ["host.docker.internal:host-gateway"]
+
+  grafana:
+    image: grafana/grafana:11.6.0
+    networks: { default: { aliases: ["${OBS_PROJECT:-obs}-grafana"] } }
+    environment:
+      # anyone who can reach the port may look (and explore); only admin (the CLI) writes
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_USERS_VIEWERS_CAN_EDIT: "true"
+      GF_SECURITY_ADMIN_USER: admin
+      # applied when the Grafana volume is first created: set it before the first `up`
+      GF_SECURITY_ADMIN_PASSWORD: ${OBS_GRAFANA_PASSWORD:-obs}
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/dashboards/platform/obs-overview.json
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+    volumes:
+      - grafana:/var/lib/grafana
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      # one dashboard folder per owner: this repo's own ("platform") here; each project's
+      # <project>/observability/dashboards is mounted by the override file ./obs up
+      # writes (projects.yml in the state directory), with its folder's provider
+      - ./dashboards:/etc/grafana/dashboards/platform:ro
+      - ${OBS_GRAFANA_PROVIDERS:?start the stack with ./obs up}:/etc/grafana/provisioning/dashboards:ro
+    ports: ["${OBS_BIND:-127.0.0.1}:${OBS_GRAFANA_PORT:-3300}:3000"]
+    depends_on: [prometheus, loki]
+    logging: *logging
+    restart: unless-stopped
+
+  # Traces (later): add Grafana Tempo here and an otelcol receiver in alloy/config.alloy;
+  # README.md, "Traces".
+
+volumes:
+  prometheus: {}
+  grafana: {}
+  loki: {}
+  pushgateway: {}
+  alloy: {}

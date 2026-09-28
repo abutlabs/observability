@@ -2,7 +2,8 @@
 //
 //   metrics  every container labelled org.abutlabs.obs.scrape=true (Docker discovery),
 //            every file target `obs register` wrote (processes on the host), the obs
-//            services themselves; all remote-written to Prometheus
+//            services themselves (the collectors, and lifecycle: containers' and runs'
+//            lives); all remote-written to Prometheus
 //   logs     the output of every labelled container, shipped to Loki
 //
 // The label model (README.md, "Labels"): every series and every log stream carries
@@ -184,13 +185,14 @@ prometheus.scrape "collectors" {
     {"__address__" = sys.env("OBS_PROJECT") + "-pushgateway:9091", "job" = "obs-pushgateway"},
     {"__address__" = sys.env("OBS_PROJECT") + "-jip3-receiver:9911", "job" = "obs-jip3"},
     {"__address__" = sys.env("OBS_PROJECT") + "-jip2-exporter:9912", "job" = "obs-jip2"},
+    {"__address__" = sys.env("OBS_PROJECT") + "-lifecycle:9914", "job" = "obs-lifecycle"},
   ]
   forward_to      = [prometheus.remote_write.local.receiver]
   job_name        = "collectors"
   scrape_interval = "5s"
   scrape_timeout  = "4s"
-  // pushed series keep their job and grouping labels (run_id, net); the receiver's and
-  // the exporter's keep net, run_id, node and client
+  // pushed series keep their job and grouping labels (run_id, net); the receiver's, the
+  // exporter's and lifecycle's keep net, run_id, node and client
   honor_labels = true
 }
 

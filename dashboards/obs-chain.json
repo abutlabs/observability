@@ -24,8 +24,8 @@
      "type": "prometheus",
      "uid": "prometheus"
     },
-    "query": "label_values({__name__=~\"up|jam_best_slot\",run_id!=\"\"}, net)",
-    "definition": "label_values({__name__=~\"up|jam_best_slot\",run_id!=\"\"}, net)",
+    "query": "label_values({__name__=~\"up|jam_best_slot|obs_run_info\",run_id!=\"\"}, net)",
+    "definition": "label_values({__name__=~\"up|jam_best_slot|obs_run_info\",run_id!=\"\"}, net)",
     "refresh": 2,
     "sort": 1,
     "includeAll": false,
@@ -42,8 +42,8 @@
      "type": "prometheus",
      "uid": "prometheus"
     },
-    "query": "label_values({__name__=~\"up|jam_best_slot\",net=\"$net\"}, run_id)",
-    "definition": "label_values({__name__=~\"up|jam_best_slot\",net=\"$net\"}, run_id)",
+    "query": "label_values({__name__=~\"up|jam_best_slot|obs_run_info\",net=\"$net\"}, run_id)",
+    "definition": "label_values({__name__=~\"up|jam_best_slot|obs_run_info\",net=\"$net\"}, run_id)",
     "refresh": 2,
     "sort": 2,
     "includeAll": false,
@@ -51,6 +51,63 @@
     "current": {},
     "options": [],
     "hide": 0
+   },
+   {
+    "name": "at",
+    "label": "at",
+    "type": "query",
+    "datasource": {
+     "type": "prometheus",
+     "uid": "prometheus"
+    },
+    "query": "query_result(clamp_max(max(obs_run_end_timestamp_seconds{net=\"$net\",run_id=\"$run_id\"}), ${__to:date:seconds}) or vector(${__to:date:seconds}))",
+    "definition": "query_result(clamp_max(max(obs_run_end_timestamp_seconds{net=\"$net\",run_id=\"$run_id\"}), ${__to:date:seconds}) or vector(${__to:date:seconds}))",
+    "regex": "/\\}\\s+(\\S+)\\s/",
+    "refresh": 2,
+    "sort": 0,
+    "includeAll": false,
+    "multi": false,
+    "current": {},
+    "options": [],
+    "hide": 2
+   },
+   {
+    "name": "run_from",
+    "label": "run_from",
+    "type": "query",
+    "datasource": {
+     "type": "prometheus",
+     "uid": "prometheus"
+    },
+    "query": "query_result(max by (link_from) (obs_run_info{net=\"$net\",run_id=\"$run_id\"}))",
+    "definition": "query_result(max by (link_from) (obs_run_info{net=\"$net\",run_id=\"$run_id\"}))",
+    "regex": "/link_from=\"([^\"]+)\"/",
+    "refresh": 2,
+    "sort": 0,
+    "includeAll": false,
+    "multi": false,
+    "current": {},
+    "options": [],
+    "hide": 2
+   },
+   {
+    "name": "run_to",
+    "label": "run_to",
+    "type": "query",
+    "datasource": {
+     "type": "prometheus",
+     "uid": "prometheus"
+    },
+    "query": "query_result(max by (link_to) (obs_run_info{net=\"$net\",run_id=\"$run_id\"}))",
+    "definition": "query_result(max by (link_to) (obs_run_info{net=\"$net\",run_id=\"$run_id\"}))",
+    "regex": "/link_to=\"([^\"]+)\"/",
+    "refresh": 2,
+    "sort": 0,
+    "includeAll": false,
+    "multi": false,
+    "current": {},
+    "options": [],
+    "hide": 2
    }
   ]
  },
@@ -124,10 +181,60 @@
      "matchAny": false,
      "limit": 500
     }
+   },
+   {
+    "name": "lifecycle",
+    "enable": true,
+    "hide": false,
+    "iconColor": "#B877D9",
+    "datasource": {
+     "type": "loki",
+     "uid": "loki"
+    },
+    "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=~\"run_begin|run_end|start|restart|die\" | during_run!=\"true\"",
+    "target": {
+     "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=~\"run_begin|run_end|start|restart|die\" | during_run!=\"true\"",
+     "refId": "Anno",
+     "queryType": "range"
+    },
+    "instant": false,
+    "titleFormat": "{{node}} {{event}}",
+    "textFormat": "{{msg}}",
+    "tagKeys": "node,event,reason"
+   },
+   {
+    "name": "node stopped during the run",
+    "enable": true,
+    "hide": false,
+    "iconColor": "red",
+    "datasource": {
+     "type": "loki",
+     "uid": "loki"
+    },
+    "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=\"die\" | during_run=\"true\"",
+    "target": {
+     "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=\"die\" | during_run=\"true\"",
+     "refId": "Anno",
+     "queryType": "range"
+    },
+    "instant": false,
+    "titleFormat": "{{node}} {{event}}",
+    "textFormat": "{{msg}}",
+    "tagKeys": "node,event,reason"
    }
   ]
  },
  "links": [
+  {
+   "type": "link",
+   "title": "whole run",
+   "icon": "dashboard",
+   "includeVars": true,
+   "keepTime": false,
+   "targetBlank": false,
+   "tooltip": "Set the time range to this run's start \u2192 end (1 min either side)",
+   "url": "/d/obs-chain?from=${run_from}&to=${run_to}"
+  },
   {
    "type": "dashboards",
    "tags": [
@@ -158,18 +265,18 @@
   },
   {
    "type": "stat",
-   "title": "Nodes stopped reporting (15 min) \u00b7 PASS = 0",
-   "description": "Nodes that reported a best block in the last 15 minutes but report none now.",
+   "title": "Nodes stopped during the run \u00b7 PASS = 0",
+   "description": "Nodes that stopped reporting more than 60 s before the rest of the net did, within the range (up to the run's end). A net shut down at the end of its run stops all together and is not counted. Node detail (click a node) says why.",
    "datasource": {
     "type": "prometheus",
     "uid": "prometheus"
    },
    "targets": [
     {
-     "expr": "count(max by (node) (last_over_time(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[15m]))) - (count(max by (node, client) (jam_best_slot{net=\"$net\",run_id=\"$run_id\"})) or vector(0))",
+     "expr": "count(max by (node, client) (max_over_time(timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"})[$__range:15s] @ $at)) < on() group_left() (max(max by (node, client) (max_over_time(timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"})[$__range:15s] @ $at))) - 60)) or (max(max by (node, client) (max_over_time(timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"})[$__range:15s] @ $at))) * 0)",
      "refId": "A",
-     "range": true,
-     "instant": false
+     "range": false,
+     "instant": true
     }
    ],
    "fieldConfig": {
@@ -196,7 +303,7 @@
     "overrides": []
    },
    "options": {
-    "graphMode": "area",
+    "graphMode": "none",
     "colorMode": "background",
     "textMode": "value",
     "justifyMode": "center",
@@ -226,10 +333,10 @@
    },
    "targets": [
     {
-     "expr": "min(jam_net_one_head{net=\"$net\",run_id=\"$run_id\"}) or on() ((max(max by (node, client) (jam_best_slot{net=\"$net\",run_id=\"$run_id\"})) - min(max by (node, client) (jam_best_slot{net=\"$net\",run_id=\"$run_id\"}))) <= bool 3)",
+     "expr": "last_over_time((min(jam_net_one_head{net=\"$net\",run_id=\"$run_id\"}) or on() ((max(max by (node, client) (jam_best_slot{net=\"$net\",run_id=\"$run_id\"})) - min(max by (node, client) (jam_best_slot{net=\"$net\",run_id=\"$run_id\"}))) <= bool 3))[$__range:$__interval] @ $at)",
      "refId": "A",
-     "range": true,
-     "instant": false
+     "range": false,
+     "instant": true
     }
    ],
    "fieldConfig": {
@@ -271,7 +378,7 @@
     "overrides": []
    },
    "options": {
-    "graphMode": "area",
+    "graphMode": "none",
     "colorMode": "background",
     "textMode": "value",
     "justifyMode": "center",
@@ -301,10 +408,10 @@
    },
    "targets": [
     {
-     "expr": "max(max by (node, client) (jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) - (max by (node, client) (jam_finalized_slot{net=\"$net\",run_id=\"$run_id\"}) > 0))",
+     "expr": "last_over_time((max(max by (node, client) (jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) - (max by (node, client) (jam_finalized_slot{net=\"$net\",run_id=\"$run_id\"}) > 0)))[$__range:$__interval] @ $at)",
      "refId": "A",
-     "range": true,
-     "instant": false
+     "range": false,
+     "instant": true
     }
    ],
    "fieldConfig": {
@@ -331,7 +438,7 @@
     "overrides": []
    },
    "options": {
-    "graphMode": "area",
+    "graphMode": "none",
     "colorMode": "background",
     "textMode": "value",
     "justifyMode": "center",
@@ -361,10 +468,10 @@
    },
    "targets": [
     {
-     "expr": "min((max_over_time((max by (node, client) (jam_finalized_slot{net=\"$net\",run_id=\"$run_id\"}))[5m:15s]) - min_over_time((max by (node, client) (jam_finalized_slot{net=\"$net\",run_id=\"$run_id\"}) > 0)[5m:15s])) or (max by (node, client) (jam_finalized_slot{net=\"$net\",run_id=\"$run_id\"}) * 0))",
+     "expr": "last_over_time((min((max_over_time((max by (node, client) (jam_finalized_slot{net=\"$net\",run_id=\"$run_id\"}))[5m:15s]) - min_over_time((max by (node, client) (jam_finalized_slot{net=\"$net\",run_id=\"$run_id\"}) > 0)[5m:15s])) or (max by (node, client) (jam_finalized_slot{net=\"$net\",run_id=\"$run_id\"}) * 0)))[$__range:$__interval] @ $at)",
      "refId": "A",
-     "range": true,
-     "instant": false
+     "range": false,
+     "instant": true
     }
    ],
    "fieldConfig": {
@@ -391,7 +498,7 @@
     "overrides": []
    },
    "options": {
-    "graphMode": "area",
+    "graphMode": "none",
     "colorMode": "background",
     "textMode": "value",
     "justifyMode": "center",
@@ -421,10 +528,10 @@
    },
    "targets": [
     {
-     "expr": "max(jam_finality_conflicts_total{net=\"$net\",run_id=\"$run_id\"})",
+     "expr": "last_over_time((max(jam_finality_conflicts_total{net=\"$net\",run_id=\"$run_id\"}))[$__range:$__interval] @ $at)",
      "refId": "A",
-     "range": true,
-     "instant": false
+     "range": false,
+     "instant": true
     }
    ],
    "fieldConfig": {
@@ -451,7 +558,7 @@
     "overrides": []
    },
    "options": {
-    "graphMode": "area",
+    "graphMode": "none",
     "colorMode": "background",
     "textMode": "value",
     "justifyMode": "center",
@@ -502,7 +609,19 @@
      "color": {
       "mode": "palette-classic"
      },
-     "decimals": 0
+     "decimals": 0,
+     "links": [
+      {
+       "title": "Node detail: ${__field.labels.node}",
+       "targetBlank": false,
+       "url": "/d/obs-node?orgId=1&var-net=${net}&var-run_id=${run_id}&var-node=${__field.labels.node}&${__url_time_range}"
+      },
+      {
+       "title": "Logs of ${__field.labels.node} up to here (Explore)",
+       "targetBlank": true,
+       "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%7B%22datasource%22%3A%22loki%22%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__value.time}%22%7D%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bnet%3D%5C%22$net%5C%22%2Crun_id%3D%5C%22$run_id%5C%22%2Cnode%3D%5C%22${__field.labels.node}%5C%22%7D%22%7D%5D%7D%7D"
+      }
+     ]
     },
     "overrides": []
    },
@@ -556,7 +675,19 @@
      "color": {
       "mode": "palette-classic"
      },
-     "decimals": 0
+     "decimals": 0,
+     "links": [
+      {
+       "title": "Node detail: ${__field.labels.node}",
+       "targetBlank": false,
+       "url": "/d/obs-node?orgId=1&var-net=${net}&var-run_id=${run_id}&var-node=${__field.labels.node}&${__url_time_range}"
+      },
+      {
+       "title": "Logs of ${__field.labels.node} up to here (Explore)",
+       "targetBlank": true,
+       "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%7B%22datasource%22%3A%22loki%22%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__value.time}%22%7D%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bnet%3D%5C%22$net%5C%22%2Crun_id%3D%5C%22$run_id%5C%22%2Cnode%3D%5C%22${__field.labels.node}%5C%22%7D%22%7D%5D%7D%7D"
+      }
+     ]
     },
     "overrides": []
    },
@@ -627,7 +758,19 @@
         "value": 12
        }
       ]
-     }
+     },
+     "links": [
+      {
+       "title": "Node detail: ${__field.labels.node}",
+       "targetBlank": false,
+       "url": "/d/obs-node?orgId=1&var-net=${net}&var-run_id=${run_id}&var-node=${__field.labels.node}&${__url_time_range}"
+      },
+      {
+       "title": "Logs of ${__field.labels.node} up to here (Explore)",
+       "targetBlank": true,
+       "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%7B%22datasource%22%3A%22loki%22%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__value.time}%22%7D%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bnet%3D%5C%22$net%5C%22%2Crun_id%3D%5C%22$run_id%5C%22%2Cnode%3D%5C%22${__field.labels.node}%5C%22%7D%22%7D%5D%7D%7D"
+      }
+     ]
     },
     "overrides": []
    },
@@ -771,7 +914,19 @@
       "mode": "palette-classic"
      },
      "decimals": 0,
-     "min": 0
+     "min": 0,
+     "links": [
+      {
+       "title": "Node detail: ${__field.labels.node}",
+       "targetBlank": false,
+       "url": "/d/obs-node?orgId=1&var-net=${net}&var-run_id=${run_id}&var-node=${__field.labels.node}&${__url_time_range}"
+      },
+      {
+       "title": "Logs of ${__field.labels.node} up to here (Explore)",
+       "targetBlank": true,
+       "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%7B%22datasource%22%3A%22loki%22%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__value.time}%22%7D%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bnet%3D%5C%22$net%5C%22%2Crun_id%3D%5C%22$run_id%5C%22%2Cnode%3D%5C%22${__field.labels.node}%5C%22%7D%22%7D%5D%7D%7D"
+      }
+     ]
     },
     "overrides": [
      {
@@ -851,7 +1006,19 @@
       "mode": "palette-classic"
      },
      "decimals": 0,
-     "min": 0
+     "min": 0,
+     "links": [
+      {
+       "title": "Node detail: ${__field.labels.node}",
+       "targetBlank": false,
+       "url": "/d/obs-node?orgId=1&var-net=${net}&var-run_id=${run_id}&var-node=${__field.labels.node}&${__url_time_range}"
+      },
+      {
+       "title": "Logs of ${__field.labels.node} up to here (Explore)",
+       "targetBlank": true,
+       "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%7B%22datasource%22%3A%22loki%22%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__value.time}%22%7D%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bnet%3D%5C%22$net%5C%22%2Crun_id%3D%5C%22$run_id%5C%22%2Cnode%3D%5C%22${__field.labels.node}%5C%22%7D%22%7D%5D%7D%7D"
+      }
+     ]
     },
     "overrides": []
    },

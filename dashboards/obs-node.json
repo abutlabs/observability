@@ -1,0 +1,1712 @@
+{
+ "uid": "obs-node",
+ "title": "Node detail",
+ "tags": [
+  "obs"
+ ],
+ "timezone": "browser",
+ "refresh": "10s",
+ "time": {
+  "from": "now-1h",
+  "to": "now"
+ },
+ "editable": false,
+ "graphTooltip": 1,
+ "schemaVersion": 39,
+ "version": 1,
+ "templating": {
+  "list": [
+   {
+    "name": "net",
+    "label": "net",
+    "type": "query",
+    "datasource": {
+     "type": "prometheus",
+     "uid": "prometheus"
+    },
+    "query": "label_values({__name__=~\"up|jam_best_slot|obs_run_info\",run_id!=\"\"}, net)",
+    "definition": "label_values({__name__=~\"up|jam_best_slot|obs_run_info\",run_id!=\"\"}, net)",
+    "refresh": 2,
+    "sort": 1,
+    "includeAll": false,
+    "multi": false,
+    "current": {},
+    "options": [],
+    "hide": 0
+   },
+   {
+    "name": "run_id",
+    "label": "run_id",
+    "type": "query",
+    "datasource": {
+     "type": "prometheus",
+     "uid": "prometheus"
+    },
+    "query": "label_values({__name__=~\"up|jam_best_slot|obs_run_info\",net=\"$net\"}, run_id)",
+    "definition": "label_values({__name__=~\"up|jam_best_slot|obs_run_info\",net=\"$net\"}, run_id)",
+    "refresh": 2,
+    "sort": 2,
+    "includeAll": false,
+    "multi": false,
+    "current": {},
+    "options": [],
+    "hide": 0
+   },
+   {
+    "name": "node",
+    "label": "node",
+    "type": "query",
+    "datasource": {
+     "type": "prometheus",
+     "uid": "prometheus"
+    },
+    "query": "label_values({__name__=~\"jam_best_slot|up|obs_container_running\",net=\"$net\",run_id=\"$run_id\"}, node)",
+    "definition": "label_values({__name__=~\"jam_best_slot|up|obs_container_running\",net=\"$net\",run_id=\"$run_id\"}, node)",
+    "refresh": 2,
+    "sort": 1,
+    "includeAll": false,
+    "multi": false,
+    "current": {},
+    "options": [],
+    "hide": 0
+   },
+   {
+    "name": "at",
+    "label": "at",
+    "type": "query",
+    "datasource": {
+     "type": "prometheus",
+     "uid": "prometheus"
+    },
+    "query": "query_result(clamp_max(max(obs_run_end_timestamp_seconds{net=\"$net\",run_id=\"$run_id\"}), ${__to:date:seconds}) or vector(${__to:date:seconds}))",
+    "definition": "query_result(clamp_max(max(obs_run_end_timestamp_seconds{net=\"$net\",run_id=\"$run_id\"}), ${__to:date:seconds}) or vector(${__to:date:seconds}))",
+    "regex": "/\\}\\s+(\\S+)\\s/",
+    "refresh": 2,
+    "sort": 0,
+    "includeAll": false,
+    "multi": false,
+    "current": {},
+    "options": [],
+    "hide": 2
+   },
+   {
+    "name": "run_from",
+    "label": "run_from",
+    "type": "query",
+    "datasource": {
+     "type": "prometheus",
+     "uid": "prometheus"
+    },
+    "query": "query_result(max by (link_from) (obs_run_info{net=\"$net\",run_id=\"$run_id\"}))",
+    "definition": "query_result(max by (link_from) (obs_run_info{net=\"$net\",run_id=\"$run_id\"}))",
+    "regex": "/link_from=\"([^\"]+)\"/",
+    "refresh": 2,
+    "sort": 0,
+    "includeAll": false,
+    "multi": false,
+    "current": {},
+    "options": [],
+    "hide": 2
+   },
+   {
+    "name": "run_to",
+    "label": "run_to",
+    "type": "query",
+    "datasource": {
+     "type": "prometheus",
+     "uid": "prometheus"
+    },
+    "query": "query_result(max by (link_to) (obs_run_info{net=\"$net\",run_id=\"$run_id\"}))",
+    "definition": "query_result(max by (link_to) (obs_run_info{net=\"$net\",run_id=\"$run_id\"}))",
+    "regex": "/link_to=\"([^\"]+)\"/",
+    "refresh": 2,
+    "sort": 0,
+    "includeAll": false,
+    "multi": false,
+    "current": {},
+    "options": [],
+    "hide": 2
+   }
+  ]
+ },
+ "annotations": {
+  "list": [
+   {
+    "builtIn": 1,
+    "name": "Annotations & Alerts",
+    "enable": true,
+    "hide": true,
+    "iconColor": "rgba(0, 211, 255, 1)",
+    "type": "dashboard",
+    "datasource": {
+     "type": "grafana",
+     "uid": "-- Grafana --"
+    }
+   },
+   {
+    "name": "run events",
+    "enable": true,
+    "hide": false,
+    "iconColor": "#5794F2",
+    "datasource": {
+     "type": "grafana",
+     "uid": "-- Grafana --"
+    },
+    "target": {
+     "type": "tags",
+     "tags": [
+      "$run_id",
+      "event"
+     ],
+     "matchAny": false,
+     "limit": 500
+    }
+   },
+   {
+    "name": "PASS",
+    "enable": true,
+    "hide": false,
+    "iconColor": "green",
+    "datasource": {
+     "type": "grafana",
+     "uid": "-- Grafana --"
+    },
+    "target": {
+     "type": "tags",
+     "tags": [
+      "$run_id",
+      "pass"
+     ],
+     "matchAny": false,
+     "limit": 500
+    }
+   },
+   {
+    "name": "FAIL",
+    "enable": true,
+    "hide": false,
+    "iconColor": "red",
+    "datasource": {
+     "type": "grafana",
+     "uid": "-- Grafana --"
+    },
+    "target": {
+     "type": "tags",
+     "tags": [
+      "$run_id",
+      "fail"
+     ],
+     "matchAny": false,
+     "limit": 500
+    }
+   },
+   {
+    "name": "lifecycle",
+    "enable": true,
+    "hide": false,
+    "iconColor": "#B877D9",
+    "datasource": {
+     "type": "loki",
+     "uid": "loki"
+    },
+    "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=~\"run_begin|run_end|start|restart|die\" | during_run!=\"true\"",
+    "target": {
+     "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=~\"run_begin|run_end|start|restart|die\" | during_run!=\"true\"",
+     "refId": "Anno",
+     "queryType": "range"
+    },
+    "instant": false,
+    "titleFormat": "{{node}} {{event}}",
+    "textFormat": "{{msg}}",
+    "tagKeys": "node,event,reason"
+   },
+   {
+    "name": "node stopped during the run",
+    "enable": true,
+    "hide": false,
+    "iconColor": "red",
+    "datasource": {
+     "type": "loki",
+     "uid": "loki"
+    },
+    "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=\"die\" | during_run=\"true\"",
+    "target": {
+     "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=\"die\" | during_run=\"true\"",
+     "refId": "Anno",
+     "queryType": "range"
+    },
+    "instant": false,
+    "titleFormat": "{{node}} {{event}}",
+    "textFormat": "{{msg}}",
+    "tagKeys": "node,event,reason"
+   }
+  ]
+ },
+ "links": [
+  {
+   "type": "link",
+   "title": "whole run",
+   "icon": "dashboard",
+   "includeVars": true,
+   "keepTime": false,
+   "targetBlank": false,
+   "tooltip": "Set the time range to this run's start \u2192 end (1 min either side)",
+   "url": "/d/obs-node?from=${run_from}&to=${run_to}"
+  },
+  {
+   "type": "dashboards",
+   "tags": [
+    "obs"
+   ],
+   "asDropdown": false,
+   "includeVars": true,
+   "keepTime": true,
+   "title": "obs"
+  }
+ ],
+ "panels": [
+  {
+   "type": "text",
+   "title": "",
+   "transparent": true,
+   "options": {
+    "mode": "markdown",
+    "content": "**What happened to this node?** Its state and, if it stopped, why (the container's lifecycle: teardown, killed, crashed with an exit code, OOM-killed, or running but silent), its last words, then its chain, work-packages, resources and every log line. Standard `jam_*` series first; for a lasair node, lasair's own names where a `jam_*` one is missing. Figures are at the range's end or, for a finished run, at its end; **whole run** (top right) shows the run start to end. [All nodes](/d/obs-overview?orgId=1&var-net=${net}&var-run_id=${run_id}&${__url_time_range}) \u00b7 [Logs](/d/obs-logs?orgId=1&var-net=${net}&var-run_id=${run_id}&var-node=${node}&${__url_time_range})"
+   },
+   "id": 1,
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 3
+   }
+  },
+  {
+   "type": "stat",
+   "title": "State",
+   "description": "reporting, stopped during the run (over 60 s before the rest of the net), or net silent (every node stopped).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "(max by (node, client) (max_over_time(timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\",node=\"$node\"})[$__range:15s] @ $at)) >= bool on() group_left() (max(max by (node, client) (max_over_time(timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"})[$__range:15s] @ $at))) - 60)) * on() group_left() (1 + (max(max by (node, client) (max_over_time(timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"})[$__range:15s] @ $at))) < bool ($at - 60)))",
+     "refId": "A",
+     "range": false,
+     "instant": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "decimals": 0,
+     "noValue": "no chain data",
+     "color": {
+      "mode": "thresholds"
+     },
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "stopped during the run",
+         "color": "red",
+         "index": 0
+        },
+        "1": {
+         "text": "reporting",
+         "color": "green",
+         "index": 1
+        },
+        "2": {
+         "text": "net silent",
+         "color": "#8e8e8e",
+         "index": 2
+        }
+       }
+      }
+     ]
+    },
+    "overrides": []
+   },
+   "options": {
+    "graphMode": "none",
+    "colorMode": "background",
+    "textMode": "value",
+    "justifyMode": "center",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "id": 2,
+   "gridPos": {
+    "x": 0,
+    "y": 3,
+    "w": 4,
+    "h": 4
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Why it stopped",
+   "description": "The container's last stop in the range, from Docker (the lifecycle service): teardown (the net was shut down), stopped, killed, oom, crashed or exited, and when. Red if its run was still active. Orange: the container runs but the node has sent nothing for a minute.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "max by (reason) (last_over_time(obs_container_stopped_timestamp_seconds{net=\"$net\",run_id=\"$run_id\",node=\"$node\",during_run=\"true\"}[$__range])) * 1000",
+     "refId": "A",
+     "range": false,
+     "instant": true,
+     "legendFormat": "{{reason}}"
+    },
+    {
+     "expr": "max by (reason) (last_over_time(obs_container_stopped_timestamp_seconds{net=\"$net\",run_id=\"$run_id\",node=\"$node\",during_run=\"false\"}[$__range])) * 1000",
+     "refId": "B",
+     "range": false,
+     "instant": true,
+     "legendFormat": "{{reason}}"
+    },
+    {
+     "expr": "max(max by (node, client) (max_over_time(timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\",node=\"$node\"})[$__range:15s] @ $at))) * 1000 and on() (max(last_over_time(obs_container_running{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[1m] @ $at)) == 1) unless on() max(last_over_time(jam_best_slot{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[1m] @ $at))",
+     "refId": "C",
+     "range": false,
+     "instant": true,
+     "legendFormat": "running, silent since"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "decimals": 0,
+     "noValue": "not stopped",
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "text"
+     },
+     "unit": "dateTimeAsLocalNoDateIfToday"
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byFrameRefID",
+       "options": "A"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "red"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byFrameRefID",
+       "options": "B"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#8e8e8e"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byFrameRefID",
+       "options": "C"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "orange"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "graphMode": "none",
+    "colorMode": "background",
+    "textMode": "value_and_name",
+    "justifyMode": "center",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "id": 3,
+   "gridPos": {
+    "x": 4,
+    "y": 3,
+    "w": 6,
+    "h": 4
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Exit code",
+   "description": "The exit code of its last stop in the range. 137: SIGKILL (docker kill, OOM, a stop that timed out); 143: SIGTERM.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "max(last_over_time(obs_container_last_exit_code{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[$__range]))",
+     "refId": "A",
+     "range": false,
+     "instant": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "decimals": 0,
+     "noValue": "\u2013",
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "text"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "graphMode": "none",
+    "colorMode": "background",
+    "textMode": "value",
+    "justifyMode": "center",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "id": 4,
+   "gridPos": {
+    "x": 10,
+    "y": 3,
+    "w": 2,
+    "h": 4
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Restarts",
+   "description": "Starts after it had stopped (restart policy, docker restart).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "max(last_over_time(obs_container_restarts_total{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[$__range])) or (max(last_over_time(obs_container_running{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[$__range])) * 0)",
+     "refId": "A",
+     "range": false,
+     "instant": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "decimals": 0,
+     "noValue": "no data",
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "text"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "graphMode": "none",
+    "colorMode": "background",
+    "textMode": "value",
+    "justifyMode": "center",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "id": 5,
+   "gridPos": {
+    "x": 12,
+    "y": 3,
+    "w": 2,
+    "h": 4
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Last seen",
+   "description": "Its last best-slot sample in the range (up to the run's end).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "max(max by (node, client) (max_over_time(timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\",node=\"$node\"})[$__range:15s] @ $at))) * 1000",
+     "refId": "A",
+     "range": false,
+     "instant": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "decimals": 0,
+     "noValue": "no data",
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "text"
+     },
+     "unit": "dateTimeAsLocalNoDateIfToday"
+    },
+    "overrides": []
+   },
+   "options": {
+    "graphMode": "none",
+    "colorMode": "background",
+    "textMode": "value",
+    "justifyMode": "center",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "id": 6,
+   "gridPos": {
+    "x": 14,
+    "y": 3,
+    "w": 3,
+    "h": 4
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Scraped",
+   "description": "up: 1 while Alloy scrapes its /metrics. Nodes seen only through JIP-2 or JIP-3 have no scrape target.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "max(last_over_time(up{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[1m] @ $at))",
+     "refId": "A",
+     "range": false,
+     "instant": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "decimals": 0,
+     "noValue": "no scrape target",
+     "color": {
+      "mode": "thresholds"
+     },
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "target down",
+         "color": "red"
+        },
+        "1": {
+         "text": "up",
+         "color": "green"
+        }
+       }
+      }
+     ]
+    },
+    "overrides": []
+   },
+   "options": {
+    "graphMode": "none",
+    "colorMode": "background",
+    "textMode": "value",
+    "justifyMode": "center",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "id": 7,
+   "gridPos": {
+    "x": 17,
+    "y": 3,
+    "w": 3,
+    "h": 4
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Last scrape",
+   "description": "When Alloy last scraped it.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "max(max_over_time(timestamp(up{net=\"$net\",run_id=\"$run_id\",node=\"$node\"})[$__range:15s] @ $at)) * 1000",
+     "refId": "A",
+     "range": false,
+     "instant": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "decimals": 0,
+     "noValue": "no data",
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "text"
+     },
+     "unit": "dateTimeAsLocalNoDateIfToday"
+    },
+    "overrides": []
+   },
+   "options": {
+    "graphMode": "none",
+    "colorMode": "background",
+    "textMode": "value",
+    "justifyMode": "center",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "id": 8,
+   "gridPos": {
+    "x": 20,
+    "y": 3,
+    "w": 4,
+    "h": 4
+   }
+  },
+  {
+   "type": "logs",
+   "title": "Lifecycle",
+   "description": "The container's Docker events (create, start, kill, oom, stop, die with its exit code and why, destroy), newest first.",
+   "datasource": {
+    "type": "loki",
+    "uid": "loki"
+   },
+   "targets": [
+    {
+     "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\", node=\"$node\"}",
+     "refId": "A",
+     "queryType": "range"
+    }
+   ],
+   "options": {
+    "showTime": true,
+    "wrapLogMessage": true,
+    "sortOrder": "Descending",
+    "enableLogDetails": true,
+    "dedupStrategy": "none",
+    "prettifyLogMessage": false,
+    "showLabels": false,
+    "showCommonLabels": false
+   },
+   "id": 9,
+   "gridPos": {
+    "x": 0,
+    "y": 7,
+    "w": 12,
+    "h": 9
+   }
+  },
+  {
+   "type": "logs",
+   "title": "Last words",
+   "description": "Its last 20 lines in the range: if it stopped, what it said just before.",
+   "datasource": {
+    "type": "loki",
+    "uid": "loki"
+   },
+   "targets": [
+    {
+     "expr": "{net=\"$net\", run_id=\"$run_id\", node=\"$node\", source!=\"lifecycle\"}",
+     "refId": "A",
+     "queryType": "range",
+     "maxLines": 20
+    }
+   ],
+   "options": {
+    "showTime": true,
+    "wrapLogMessage": true,
+    "sortOrder": "Descending",
+    "enableLogDetails": true,
+    "dedupStrategy": "none",
+    "prettifyLogMessage": false,
+    "showLabels": false,
+    "showCommonLabels": false
+   },
+   "id": 10,
+   "gridPos": {
+    "x": 12,
+    "y": 7,
+    "w": 12,
+    "h": 9
+   }
+  },
+  {
+   "type": "row",
+   "title": "Chain",
+   "collapsed": false,
+   "panels": [],
+   "id": 11,
+   "gridPos": {
+    "x": 0,
+    "y": 16,
+    "w": 24,
+    "h": 1
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Best and finalized slot",
+   "description": "Slots of its best and finalized blocks.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "max(jam_best_slot{net=\"$net\",run_id=\"$run_id\",node=\"$node\"})",
+     "legendFormat": "best",
+     "refId": "A",
+     "range": true
+    },
+    {
+     "expr": "(max(jam_finalized_slot{net=\"$net\",run_id=\"$run_id\",node=\"$node\"})) or (max(lasair_finalized_slot{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}))",
+     "legendFormat": "finalized",
+     "refId": "B",
+     "range": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "none",
+       "group": "A"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 12,
+   "gridPos": {
+    "x": 0,
+    "y": 17,
+    "w": 8,
+    "h": 8
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Height",
+   "description": "Blocks from genesis to its best and finalized blocks.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "(max(jam_best_height{net=\"$net\",run_id=\"$run_id\",node=\"$node\"})) or (max(lasair_block_height{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}))",
+     "legendFormat": "best",
+     "refId": "A",
+     "range": true
+    },
+    {
+     "expr": "(max(jam_finalized_height{net=\"$net\",run_id=\"$run_id\",node=\"$node\"})) or (max(lasair_finalized_height{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}))",
+     "legendFormat": "finalized",
+     "refId": "B",
+     "range": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "none",
+       "group": "A"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 13,
+   "gridPos": {
+    "x": 8,
+    "y": 17,
+    "w": 8,
+    "h": 8
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Lag (slots)",
+   "description": "How far its best block trails the net's newest, and its best slot minus its finalized slot; the dashed line is one epoch.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "max(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) - on() max(jam_best_slot{net=\"$net\",run_id=\"$run_id\",node=\"$node\"})",
+     "legendFormat": "behind the newest head",
+     "refId": "A",
+     "range": true
+    },
+    {
+     "expr": "max(jam_best_slot{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}) - on() max(jam_finalized_slot{net=\"$net\",run_id=\"$run_id\",node=\"$node\"} > 0)",
+     "legendFormat": "finality lag",
+     "refId": "B",
+     "range": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "none",
+       "group": "A"
+      },
+      "thresholdsStyle": {
+       "mode": "dashed"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "decimals": 0,
+     "min": 0,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "transparent",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 12
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 14,
+   "gridPos": {
+    "x": 16,
+    "y": 17,
+    "w": 8,
+    "h": 8
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Blocks per minute",
+   "description": "Blocks it authored, and blocks of other authors it imported.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "(60 * sum(rate(jam_blocks_authored_total{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[2m]))) or (60 * sum(rate(lasair_blocks_authored_total{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[2m])))",
+     "legendFormat": "authored",
+     "refId": "A",
+     "range": true
+    },
+    {
+     "expr": "(60 * sum(rate(jam_blocks_imported_total{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[2m]))) or (60 * sum(rate(lasair_blocks_imported_total{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[2m])))",
+     "legendFormat": "imported",
+     "refId": "B",
+     "range": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "none",
+       "group": "A"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "min": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 15,
+   "gridPos": {
+    "x": 0,
+    "y": 25,
+    "w": 8,
+    "h": 8
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Block import time",
+   "description": "From the start of an import to the end of its execution.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "histogram_quantile(0.5, sum by (le) (rate(jam_block_import_seconds_bucket{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[5m])))",
+     "legendFormat": "p50",
+     "refId": "A",
+     "range": true
+    },
+    {
+     "expr": "histogram_quantile(0.99, sum by (le) (rate(jam_block_import_seconds_bucket{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[5m])))",
+     "legendFormat": "p99",
+     "refId": "B",
+     "range": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "none",
+       "group": "A"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "unit": "s",
+     "min": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 16,
+   "gridPos": {
+    "x": 8,
+    "y": 25,
+    "w": 8,
+    "h": 8
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Peers",
+   "description": "Connected JAMNP-S peers.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "sum(max by (role) (jam_peers{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}))",
+     "legendFormat": "peers",
+     "refId": "A",
+     "range": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "none",
+       "group": "A"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "decimals": 0,
+     "min": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 17,
+   "gridPos": {
+    "x": 16,
+    "y": 25,
+    "w": 8,
+    "h": 8
+   }
+  },
+  {
+   "type": "row",
+   "title": "Work-packages (guaranteeing)",
+   "collapsed": false,
+   "panels": [],
+   "id": 18,
+   "gridPos": {
+    "x": 0,
+    "y": 33,
+    "w": 24,
+    "h": 1
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Work-packages per minute",
+   "description": "Work-packages it received as a guarantor, guaranteed, refused, and let expire before guaranteeing.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "(60 * sum(rate(jam_wp_received_total{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[2m]))) or (60 * sum(rate(lasair_ce133_queued_total{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[2m])))",
+     "legendFormat": "received",
+     "refId": "A",
+     "range": true
+    },
+    {
+     "expr": "(60 * sum(rate(jam_wp_stage_seconds_count{net=\"$net\",run_id=\"$run_id\",node=\"$node\",stage=\"guarantee\"}[2m]))) or (60 * sum(rate(lasair_ce133_guaranteed_total{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[2m])))",
+     "legendFormat": "guaranteed",
+     "refId": "B",
+     "range": true
+    },
+    {
+     "expr": "(60 * sum(rate(jam_wp_refused_total{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[2m]))) or (60 * sum(rate(lasair_ce133_refused_total{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[2m])))",
+     "legendFormat": "refused",
+     "refId": "C",
+     "range": true
+    },
+    {
+     "expr": "(60 * sum(rate(jam_wp_expired_total{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[2m]))) or (60 * sum(rate(lasair_ce133_expired_total{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[2m])))",
+     "legendFormat": "expired",
+     "refId": "D",
+     "range": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "none",
+       "group": "A"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "min": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 19,
+   "gridPos": {
+    "x": 0,
+    "y": 34,
+    "w": 8,
+    "h": 8
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Guarantor pipeline, p50 per stage",
+   "description": "Time to reach each stage from the previous one (jam_wp_stage_seconds).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "histogram_quantile(0.5, sum by (stage, le) (rate(jam_wp_stage_seconds_bucket{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[10m])))",
+     "legendFormat": "{{stage}}",
+     "refId": "A",
+     "range": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 10,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "normal",
+       "group": "A"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "unit": "s",
+     "min": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 20,
+   "gridPos": {
+    "x": 8,
+    "y": 34,
+    "w": 8,
+    "h": 8
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Refine time and queue",
+   "description": "Wall-clock refine time of one work-package, and (lasair) packages waiting in its builder queue.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "(histogram_quantile(0.5, sum by (le) (rate(jam_refine_seconds_bucket{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[10m])))) or (histogram_quantile(0.5, sum by (le) (rate(lasair_guarantor_refine_seconds_bucket{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[10m]))))",
+     "legendFormat": "refine p50",
+     "refId": "A",
+     "range": true
+    },
+    {
+     "expr": "(histogram_quantile(0.99, sum by (le) (rate(jam_refine_seconds_bucket{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[10m])))) or (histogram_quantile(0.99, sum by (le) (rate(lasair_guarantor_refine_seconds_bucket{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[10m]))))",
+     "legendFormat": "refine p99",
+     "refId": "B",
+     "range": true
+    },
+    {
+     "expr": "max(lasair_ce133_queue_depth{net=\"$net\",run_id=\"$run_id\",node=\"$node\"})",
+     "legendFormat": "lasair CE-133 queue (packages)",
+     "refId": "C",
+     "range": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "none",
+       "group": "A"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "unit": "s",
+     "min": 0
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byRegexp",
+       "options": "lasair CE-133.*"
+      },
+      "properties": [
+       {
+        "id": "custom.axisPlacement",
+        "value": "right"
+       },
+       {
+        "id": "custom.lineStyle",
+        "value": {
+         "fill": "dash",
+         "dash": [
+          6,
+          4
+         ]
+        }
+       },
+       {
+        "id": "unit",
+        "value": "short"
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 21,
+   "gridPos": {
+    "x": 16,
+    "y": 34,
+    "w": 8,
+    "h": 8
+   }
+  },
+  {
+   "type": "row",
+   "title": "Resources",
+   "collapsed": false,
+   "panels": [],
+   "id": 22,
+   "gridPos": {
+    "x": 0,
+    "y": 42,
+    "w": 24,
+    "h": 1
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "CPU (cores)",
+   "description": "CPU time per second its container used (Docker stats, every 10 s).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "sum(rate(obs_container_cpu_seconds_total{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[1m]))",
+     "legendFormat": "container",
+     "refId": "A",
+     "range": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "none",
+       "group": "A"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "decimals": 2,
+     "min": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 23,
+   "gridPos": {
+    "x": 0,
+    "y": 43,
+    "w": 12,
+    "h": 7
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Memory",
+   "description": "Its container's memory less inactive page cache (Docker stats), and lasair's own view of its memory.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "max(obs_container_memory_bytes{net=\"$net\",run_id=\"$run_id\",node=\"$node\"})",
+     "legendFormat": "container (working set)",
+     "refId": "A",
+     "range": true
+    },
+    {
+     "expr": "max(lasair_mem_rss_bytes{net=\"$net\",run_id=\"$run_id\",node=\"$node\"})",
+     "legendFormat": "lasair RSS",
+     "refId": "B",
+     "range": true
+    },
+    {
+     "expr": "max(lasair_mem_ocaml_heap_bytes{net=\"$net\",run_id=\"$run_id\",node=\"$node\"})",
+     "legendFormat": "lasair OCaml heap",
+     "refId": "C",
+     "range": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "none",
+       "group": "A"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "unit": "bytes",
+     "min": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 24,
+   "gridPos": {
+    "x": 12,
+    "y": 43,
+    "w": 12,
+    "h": 7
+   }
+  },
+  {
+   "type": "row",
+   "title": "Logs",
+   "collapsed": false,
+   "panels": [],
+   "id": 25,
+   "gridPos": {
+    "x": 0,
+    "y": 50,
+    "w": 24,
+    "h": 1
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Warnings and errors per minute",
+   "description": "Lines that look like warnings or errors (plain text or JSON levels).",
+   "datasource": {
+    "type": "loki",
+    "uid": "loki"
+   },
+   "targets": [
+    {
+     "expr": "sum(count_over_time({net=\"$net\", run_id=\"$run_id\", node=\"$node\", source!=\"lifecycle\"} |~ `(?i)\\\\b(warn|warning)\\\\b|\"level\":\"warn` [1m]))",
+     "legendFormat": "warnings",
+     "refId": "A",
+     "range": true
+    },
+    {
+     "expr": "sum(count_over_time({net=\"$net\", run_id=\"$run_id\", node=\"$node\", source!=\"lifecycle\"} |~ `(?i)\\\\b(error|err|panic|fatal|crit)\\\\b|\"level\":\"error` [1m]))",
+     "legendFormat": "errors",
+     "refId": "B",
+     "range": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "none",
+       "group": "A"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "min": 0
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "errors"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "red"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "warnings"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "orange"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 26,
+   "gridPos": {
+    "x": 0,
+    "y": 51,
+    "w": 24,
+    "h": 6
+   }
+  },
+  {
+   "type": "logs",
+   "title": "Warnings and errors",
+   "description": "Only its warning and error lines, newest first.",
+   "datasource": {
+    "type": "loki",
+    "uid": "loki"
+   },
+   "targets": [
+    {
+     "expr": "{net=\"$net\", run_id=\"$run_id\", node=\"$node\", source!=\"lifecycle\"} |~ `(?i)\\\\b(warn|warning)\\\\b|\"level\":\"warn|(?i)\\\\b(error|err|panic|fatal|crit)\\\\b|\"level\":\"error`",
+     "refId": "A",
+     "queryType": "range"
+    }
+   ],
+   "options": {
+    "showTime": true,
+    "wrapLogMessage": true,
+    "sortOrder": "Descending",
+    "enableLogDetails": true,
+    "dedupStrategy": "none",
+    "prettifyLogMessage": false,
+    "showLabels": false,
+    "showCommonLabels": false
+   },
+   "id": 27,
+   "gridPos": {
+    "x": 0,
+    "y": 57,
+    "w": 24,
+    "h": 9
+   }
+  },
+  {
+   "type": "logs",
+   "title": "Every line",
+   "description": "Everything it wrote, and its JIP-3 events, newest first; the level colours each line.",
+   "datasource": {
+    "type": "loki",
+    "uid": "loki"
+   },
+   "targets": [
+    {
+     "expr": "{net=\"$net\", run_id=\"$run_id\", node=\"$node\", source!=\"lifecycle\"}",
+     "refId": "A",
+     "queryType": "range"
+    }
+   ],
+   "options": {
+    "showTime": true,
+    "wrapLogMessage": true,
+    "sortOrder": "Descending",
+    "enableLogDetails": true,
+    "dedupStrategy": "none",
+    "prettifyLogMessage": false,
+    "showLabels": false,
+    "showCommonLabels": false
+   },
+   "id": 28,
+   "gridPos": {
+    "x": 0,
+    "y": 66,
+    "w": 24,
+    "h": 14
+   }
+  }
+ ]
+}

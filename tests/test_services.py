@@ -45,7 +45,8 @@ class Labels(unittest.TestCase):
         self.assertEqual(obslib.obs_labels({P + "net": "n", P + "run_id": ""}, "c")["run_id"], "n-adhoc")
 
     def test_the_alloy_config_names_every_label_it_defaults(self):
-        cfg = open(os.path.join(REPO, "alloy", "config.alloy")).read()
+        with open(os.path.join(REPO, "alloy", "config.alloy")) as fh:
+            cfg = fh.read()
         for key in ("net", "run_id", "node", "job", "client", "scrape", "port", "path", "logs"):
             self.assertIn("__meta_docker_container_label_org_abutlabs_obs_" + key, cfg)
         for target in ("net", "run_id", "node", "job", "client", "instance"):
@@ -170,13 +171,19 @@ class Dashboards(unittest.TestCase):
 
     FUNCS = {"by", "on", "or", "and", "unless", "bool", "without", "vector", "max", "min", "sum",
              "count", "rate", "increase", "time", "group", "max_over_time", "min_over_time",
-             "last_over_time", "histogram_quantile", "label_replace", "deriv", "abs", "offset"}
+             "last_over_time", "histogram_quantile", "label_replace", "deriv", "abs", "offset",
+             "timestamp", "clamp_max", "query_result"}
+    # client-specific names Node detail may read where no jam_* one exists
+    CLIENT_SPECIFIC = {"obs-node.json": re.compile(r"^lasair_")}
+    # panels that list the net's runs, so do not filter by one
+    RUN_LISTS = {"Runs of this net, newest first"}
 
     @classmethod
     def metric_names(cls, expr):
         """The metric names a PromQL expression reads (selectors, groupings, strings and
         ranges removed first)."""
         e = re.sub(r'"[^"]*"', "", expr)
+        e = re.sub(r"\$\{[^}]*\}|\$\w+", "", e)
         e = re.sub(r"\{[^}]*\}", "", e)
         e = re.sub(r"\b(by|on|without|ignoring|group_left|group_right)\s*\([^)]*\)", "", e)
         e = re.sub(r"\[[^\]]*\]", "", e)
@@ -186,6 +193,8 @@ class Dashboards(unittest.TestCase):
         self.assertEqual(self.metric_names('count(max by (node, client) (jam_best_slot{net="$net"})) - '
                                            '(count(x_total[5m]) or vector(0)) + 1e-9'),
                          {"jam_best_slot", "x_total"})
+        self.assertEqual(self.metric_names("last_over_time((max(y))[$__range:$__interval] @ $at) < ($at - 60)"),
+                         {"y"})
 
     def test_platform_dashboards_use_only_standard_and_stack_metrics(self):
         allowed = re.compile(r"^(jam_|up$|obs_|jip2_|jip3_|prometheus_|loki_|scrape_|push_time_seconds$)")
@@ -195,6 +204,8 @@ class Dashboards(unittest.TestCase):
                     continue
                 for t in p.get("targets", []):
                     for m in self.metric_names(t["expr"]):
+                        if self.CLIENT_SPECIFIC.get(name) and self.CLIENT_SPECIFIC[name].match(m):
+                            continue
                         self.assertRegex(m, allowed, "%s / %s: %s" % (name, p["title"], t["expr"]))
 
     def test_run_scoped_dashboards_filter_every_query_by_run(self):
@@ -205,7 +216,64 @@ class Dashboards(unittest.TestCase):
             self.assertEqual(d["panels"][0]["type"], "text", name)
             for p in d["panels"]:
                 for t in p.get("targets", []):
-                    self.assertIn("$run_id", t["expr"], (name, p["title"]))
+                    if p["title"] not in self.RUN_LISTS:
+                        self.assertIn("$run_id", t["expr"], (name, p["title"]))
+
+    def run_scoped(self):
+        for name, d in self.platform.render_all().items():
+            if "run_id" in [v["name"] for v in d["templating"]["list"]]:
+                yield name, d
+
+    def test_runs_are_first_class(self):
+        """Every run-scoped dashboard: the run's hidden variables, the whole-run link, the
+        lifecycle annotations, and stats and tables that describe the run at $at."""
+        names = set()
+        for name, d in self.run_scoped():
+            names.add(name)
+            vs = {v["name"]: v for v in d["templating"]["list"]}
+            for v in ("at", "run_from", "run_to"):
+                self.assertEqual(vs[v]["hide"], 2, (name, v))
+            link, = [lk for lk in d["links"] if lk["title"] == "whole run"]
+            self.assertEqual(link["url"], "/d/%s?from=${run_from}&to=${run_to}" % d["uid"])
+            self.assertTrue(link["includeVars"])
+            anns = {a["name"]: a for a in d["annotations"]["list"]}
+            self.assertIn('source="lifecycle"', anns["lifecycle"]["expr"])
+            self.assertIn('during_run="true"', anns["node stopped during the run"]["expr"])
+            for p in d["panels"]:
+                if p["type"] not in ("stat", "table") or (p.get("datasource") or {}).get("uid") != "prometheus":
+                    continue
+                for t in p["targets"]:
+                    # the run's own record (obs_run_*) is read as it stood at the range's end
+                    e = t["expr"]
+                    if "$run_id" in e and "@ $at" not in e and "$__range" not in e and "obs_run_" not in e:
+                        self.fail("%s / %s is not evaluated at the run's end: %s" % (name, p["title"], e))
+        self.assertEqual(names, {"obs-overview.json", "obs-chain.json", "obs-node.json", "obs-logs.json"})
+
+    def test_every_per_node_series_and_row_links_to_the_node(self):
+        linked = 0
+        for name, d in self.run_scoped():
+            for p in d["panels"]:
+                legends = [t.get("legendFormat", "") for t in p.get("targets", [])]
+                links = p.get("fieldConfig", {}).get("defaults", {}).get("links", [])
+                per_node = any("{{node}}" in lg for lg in legends) or p["title"] == "Nodes"
+                if not per_node:
+                    continue
+                linked += 1
+                detail, explore = links
+                self.assertIn("/d/obs-node?", detail["url"], (name, p["title"]))
+                self.assertIn("var-node=${__", detail["url"])
+                self.assertTrue(explore["url"].startswith("/explore?"), (name, p["title"]))
+                self.assertIn("node%3D%5C%22${__", explore["url"])
+        self.assertGreaterEqual(linked, 8)
+
+    def test_the_stopped_tile_ignores_a_net_that_stopped_together(self):
+        """Nodes stopped during the run: a node is counted only when it stopped well before
+        the rest of the net, never by the net's own teardown."""
+        tile, = [p for p in self.platform.overview()["panels"] if p["title"].startswith("Nodes stopped")]
+        expr = tile["targets"][0]["expr"]
+        self.assertIn("group_left() (max(", expr)
+        self.assertIn("- 60", expr)
+        self.assertIn("@ $at", expr)
 
     def test_every_dashboard_json_in_the_repo_has_a_unique_uid_and_known_datasources(self):
         seen = set()

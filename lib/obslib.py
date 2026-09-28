@@ -1,4 +1,5 @@
-"""obslib: the helpers the obs services share (netjoin, jip2-exporter, jip3-receiver).
+"""obslib: the helpers the obs services share (netjoin, jip2-exporter, jip3-receiver,
+lifecycle) and the obs CLI.
 
 Stdlib only, so every service runs on a plain python:3.12-alpine image with this
 directory mounted next to its own code.
@@ -10,19 +11,28 @@ directory mounted next to its own code.
   Metrics            a minimal Prometheus registry and its text exposition
   serve_http(...)    /metrics (and any extra routes) on a background thread
   read_targets(...)  file_sd JSON target files (what `obs register` writes)
+  LokiPusher         batches log lines to Loki's push API
+  read_runs(...)     the run records `obs begin` and `obs end` write
+  run_range(rec)     the dashboard range that shows a whole run
 
 The label model is the contract every ingestion path follows (README.md, "Labels"):
 every series and every log line carries net, run_id, node and client.
 """
+import collections
 import glob
 import http.client
 import http.server
 import json
 import math
 import os
+import queue
 import socket
+import sys
 import threading
+import time
+import urllib.error
 import urllib.parse
+import urllib.request
 
 PREFIX = "org.abutlabs.obs."
 COMPOSE_PROJECT = "com.docker.compose.project"
@@ -252,6 +262,17 @@ class Family:
         with self.lock:
             self.children.clear()
 
+    def set_all(self, rows):
+        """Replace every child at once: rows = {label tuple (in labelnames order): value}.
+        A scrape sees the old set or the new one, never a gap between them."""
+        new = {}
+        for key, v in rows.items():
+            ch = _Child(self)
+            ch.value = float(v)
+            new[tuple(str(x) for x in key)] = ch
+        with self.lock:
+            self.children = new
+
     def render(self):
         out = ["# HELP %s %s" % (self.name, self.help), "# TYPE %s %s" % (self.name, self.kind)]
         with self.lock:
@@ -342,3 +363,97 @@ def read_targets(pattern):
             for t in g.get("targets") or []:
                 out.append((t, dict(g.get("labels") or {})))
     return out
+
+
+# ---- Loki ------------------------------------------------------------------------
+class LokiPusher:
+    """Batches log lines and pushes them to Loki's JSON push API about every `interval`
+    seconds. The queue is bounded: past `maxsize` lines are dropped and counted through
+    on_drop(stream labels, n)."""
+
+    def __init__(self, url, on_drop, interval=1.0, maxsize=20000, batch=5000, log=None):
+        self.url, self.on_drop, self.interval, self.batch = url, on_drop, interval, batch
+        self.log = log or (lambda msg: print(msg, file=sys.stderr, flush=True))
+        self.q = queue.Queue(maxsize)
+        self.pushed = 0
+        self._lock = threading.Lock()
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def put(self, stream, ns, line):
+        try:
+            self.q.put_nowait((stream, ns, line))
+        except queue.Full:
+            self.on_drop(dict(stream), 1)
+
+    def flush(self):
+        """Push everything queued now (the background thread does this every interval)."""
+        with self._lock:
+            while True:
+                items = []
+                while len(items) < self.batch:
+                    try:
+                        items.append(self.q.get_nowait())
+                    except queue.Empty:
+                        break
+                if not items:
+                    return
+                self._push(items)
+
+    def _push(self, items):
+        streams = collections.OrderedDict()
+        for stream, ns, line in items:
+            streams.setdefault(stream, []).append([str(ns), line])
+        body = {"streams": [{"stream": dict(s), "values": v} for s, v in streams.items()]}
+        req = urllib.request.Request(self.url, data=json.dumps(body).encode(), method="POST",
+                                     headers={"Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=10) as r:
+                r.read()
+            self.pushed += len(items)
+        except (OSError, urllib.error.URLError) as e:
+            self.log("loki push failed (%d lines): %s" % (len(items), e))
+            for s, v in streams.items():
+                self.on_drop(dict(s), len(v))
+
+    def _run(self):
+        while not self._stop.wait(self.interval):
+            try:
+                self.flush()
+            except Exception as e:             # noqa: BLE001 - the pusher must not die
+                self.log("loki pusher: %s" % e)
+
+    def stop(self):
+        self._stop.set()
+        self.flush()
+
+
+# ---- runs --------------------------------------------------------------------------
+RUN_MARGIN = 60           # seconds shown before a run's start and after its end
+
+
+def read_runs(directory):
+    """{run_id: record} of every run record in `directory` (what `obs begin`, `obs end`
+    and `obs register` write: run_id, net, kind, start, end, meta). Unreadable or
+    half-written files are skipped; the next read picks them up."""
+    out = {}
+    for path in sorted(glob.glob(os.path.join(directory, "*.json"))):
+        try:
+            with open(path) as fh:
+                rec = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        if isinstance(rec, dict) and rec.get("run_id") and rec.get("net"):
+            out[rec["run_id"]] = rec
+    return out
+
+
+def run_range(rec, margin=RUN_MARGIN):
+    """(from, to) of the dashboard range that shows a whole run, in unix ms, with `margin`
+    seconds either side; to is "now" while the run is running. None without a start."""
+    if not rec or not rec.get("start"):
+        return None
+    frm = int(rec["start"] * 1000) - margin * 1000
+    to = int(rec["end"] * 1000) + margin * 1000 if rec.get("end") else "now"
+    return frm, to

@@ -109,6 +109,24 @@ services:
       - ./netjoin:/app/netjoin:ro
       - /var/run/docker.sock:/var/run/docker.sock
 
+  lifecycle:
+    # containers' lives (Docker events: start, stop, die with exit code, oom, kill,
+    # restart), their CPU and memory, and the runs `obs begin`/`obs end` record, as Loki
+    # lines and metrics (lifecycle/lifecycle.py)
+    networks: { default: { aliases: ["${OBS_PROJECT:-obs}-lifecycle"] } }
+    <<: *python
+    command: [python3, /app/lifecycle/lifecycle.py]
+    environment:
+      <<: *python-env
+      LIFECYCLE_RUNS: /etc/obs/runs
+      LIFECYCLE_LOKI_URL: http://${OBS_PROJECT:-obs}-loki:3100/loki/api/v1/push
+    volumes:
+      - ./lib:/app/lib:ro
+      - ./lifecycle:/app/lifecycle:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${OBS_RUNS:?start the stack with ./obs up}:/etc/obs/runs:ro
+    depends_on: [loki]
+
   jip3-receiver:
     # JIP-3 telemetry: nodes started with --telemetry HOST:9910 push their events here
     networks: { default: { aliases: ["${OBS_PROJECT:-obs}-jip3-receiver"] } }

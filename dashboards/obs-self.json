@@ -109,7 +109,7 @@
    "transparent": true,
    "options": {
     "mode": "markdown",
-    "content": "**Is the obs stack itself collecting?** The stack's services answer, Alloy reaches its targets and writes to Prometheus and Loki without loss, netjoin keeps the collectors on the nets' networks, and the disk stays under its caps."
+    "content": "**Is the obs stack itself collecting?** The stack's services answer, Alloy reaches its targets and writes to Prometheus and Loki without loss, netjoin keeps the collectors on the nets' networks, lifecycle follows the containers and runs, and the disk stays under its caps."
    },
    "id": 1,
    "gridPos": {
@@ -290,14 +290,14 @@
   {
    "type": "stat",
    "title": "Log entries dropped (5 min) \u00b7 PASS = 0",
-   "description": "Log entries Alloy or the JIP-3 receiver dropped instead of writing to Loki.",
+   "description": "Log entries Alloy, the JIP-3 receiver or lifecycle dropped instead of writing to Loki.",
    "datasource": {
     "type": "prometheus",
     "uid": "prometheus"
    },
    "targets": [
     {
-     "expr": "(sum(increase(loki_write_dropped_entries_total[5m])) or vector(0)) + (sum(increase(jip3_loki_dropped_total[5m])) or vector(0))",
+     "expr": "(sum(increase(loki_write_dropped_entries_total[5m])) or vector(0)) + (sum(increase(jip3_loki_dropped_total[5m])) or vector(0)) + (sum(increase(obs_lifecycle_loki_dropped_total[5m])) or vector(0))",
      "refId": "A",
      "range": true,
      "instant": false
@@ -948,6 +948,73 @@
   },
   {
    "type": "timeseries",
+   "title": "lifecycle",
+   "description": "Labelled containers whose events, CPU and memory the lifecycle service records, and the run records it exports.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "sum(obs_lifecycle_containers)",
+     "legendFormat": "containers tracked",
+     "refId": "A",
+     "range": true
+    },
+    {
+     "expr": "count(obs_run_info)",
+     "legendFormat": "runs exported",
+     "refId": "B",
+     "range": true
+    },
+    {
+     "expr": "sum(increase(obs_lifecycle_errors_total[10m]))",
+     "legendFormat": "Docker API errors per 10 min",
+     "refId": "C",
+     "range": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "none",
+       "group": "A"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "decimals": 0,
+     "min": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 16,
+   "gridPos": {
+    "x": 0,
+    "y": 30,
+    "w": 8,
+    "h": 6
+   }
+  },
+  {
+   "type": "timeseries",
    "title": "Pushgateway groups",
    "description": "Result groups batch jobs pushed (one per job and run).",
    "datasource": {
@@ -993,11 +1060,11 @@
      "sort": "desc"
     }
    },
-   "id": 16,
+   "id": 17,
    "gridPos": {
-    "x": 0,
+    "x": 8,
     "y": 30,
-    "w": 12,
+    "w": 8,
     "h": 6
    }
   },
@@ -1048,11 +1115,11 @@
      "sort": "desc"
     }
    },
-   "id": 17,
+   "id": 18,
    "gridPos": {
-    "x": 12,
+    "x": 16,
     "y": 30,
-    "w": 12,
+    "w": 8,
     "h": 6
    }
   }

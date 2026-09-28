@@ -65,6 +65,9 @@ import urllib.parse
 import urllib.request
 
 HOME = os.path.dirname(os.path.realpath(__file__))
+sys.path.insert(0, os.path.join(HOME, "lib"))
+import obslib  # noqa: E402  (the run range, shared with the lifecycle service)
+
 STATE = os.environ.get("OBS_STATE") or os.path.expanduser("~/.cache/abutlabs-obs")
 PROJECT = os.environ.get("OBS_PROJECT", "obs")
 HOST = os.environ.get("OBS_HOST", "localhost")
@@ -212,7 +215,8 @@ def compose(*args):
     write_generated(projs)
     for sub in TARGET_DIRS.values():
         os.makedirs(_path("targets", sub), exist_ok=True)
-    env = dict(os.environ, OBS_PROJECT=PROJECT, OBS_TARGETS=_path("targets"),
+    os.makedirs(_path("runs"), exist_ok=True)
+    env = dict(os.environ, OBS_PROJECT=PROJECT, OBS_TARGETS=_path("targets"), OBS_RUNS=_path("runs"),
                OBS_GRAFANA_PROVIDERS=_path("grafana"))
     cmd = ["docker", "compose", "-p", PROJECT, "-f", os.path.join(HOME, "compose.yml"),
            "-f", _path("compose.projects.yml")] + list(args)
@@ -491,12 +495,11 @@ def link(run_id, uid):
     q = {"orgId": "1", "var-run_id": run_id}
     if run.get("net"):
         q["var-net"] = run["net"]
-    if run.get("start"):
-        q["from"] = str(int(run["start"] * 1000) - 60_000)
-        if run.get("end"):
-            q["to"] = str(int(run["end"] * 1000) + 60_000)
-        else:
-            q["to"], q["refresh"] = "now", "10s"
+    rng = obslib.run_range(run)
+    if rng:
+        q["from"], q["to"] = str(rng[0]), str(rng[1])
+        if rng[1] == "now":
+            q["refresh"] = "10s"
     else:
         q["from"], q["to"] = "now-6h", "now"
     return "%s/d/%s?%s" % (url("grafana"), uid, urllib.parse.urlencode(q))

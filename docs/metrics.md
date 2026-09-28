@@ -108,3 +108,12 @@ dashboards still work. The abutlabs observability stack does both:
 A derived series carries a `source` label (`jip2`, `jip3`) naming the path it came from.
 A dashboard that aggregates `max by (node) (...)` shows one line per node whichever path
 supplied it.
+
+## Beside the `jam_*` set
+
+The platform dashboards also read the stack's own series: `obs_run_*` (every recorded run)
+and `obs_container_*` (each labelled container's lifecycle, CPU and memory), both from the
+lifecycle service (README.md, "Container lifecycle"). Node detail falls back to lasair's
+own names where a lasair image predates a `jam_*` one (`lasair_finalized_slot`,
+`lasair_block_height`, `lasair_blocks_authored_total`, `lasair_ce133_*`, ...): each such
+panel reads `(jam_x) or (lasair_x)`, so a client with the standard name never needs it.

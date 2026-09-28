@@ -155,10 +155,19 @@ class Grafana(Base):
         self.assertNotIn("to=now", out)
 
     def test_link_all_lists_every_run_scoped_dashboard(self):
+        self.cli.projects = lambda: {}                 # the platform's own, not a sibling's
         _, out = run(self.cli, "link", "n1-r1", "--all")
         uids = [ln.split("/d/")[1].split("?")[0] for ln in out.splitlines()]
         # the platform's run-scoped dashboards (obs-self has no run selector)
-        self.assertEqual(sorted(uids), ["obs-chain", "obs-logs", "obs-overview"])
+        self.assertEqual(sorted(uids), ["obs-chain", "obs-logs", "obs-node", "obs-overview"])
+
+    def test_link_range_is_the_one_the_dashboards_read(self):
+        """obs link and the lifecycle service's obs_run_info{link_from, link_to} (which
+        the dashboards' "whole run" link reads) share obslib.run_range."""
+        rec = {"run_id": "n1-r1", "net": "n1", "start": 1790616968.8, "end": 1790620903.0}
+        self.assertEqual(self.cli.obslib.run_range(rec), (1790616908800, 1790620963000))
+        self.assertEqual(self.cli.obslib.run_range(dict(rec, end=None)), (1790616908800, "now"))
+        self.assertIsNone(self.cli.obslib.run_range(dict(rec, start=None)))
 
     def test_annotate_tags_the_run_and_its_net(self):
         with recorder() as port:

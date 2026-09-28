@@ -81,6 +81,63 @@
      "value": ""
     },
     "hide": 0
+   },
+   {
+    "name": "at",
+    "label": "at",
+    "type": "query",
+    "datasource": {
+     "type": "prometheus",
+     "uid": "prometheus"
+    },
+    "query": "query_result(clamp_max(max(obs_run_end_timestamp_seconds{net=\"$net\",run_id=\"$run_id\"}), ${__to:date:seconds}) or vector(${__to:date:seconds}))",
+    "definition": "query_result(clamp_max(max(obs_run_end_timestamp_seconds{net=\"$net\",run_id=\"$run_id\"}), ${__to:date:seconds}) or vector(${__to:date:seconds}))",
+    "regex": "/\\}\\s+(\\S+)\\s/",
+    "refresh": 2,
+    "sort": 0,
+    "includeAll": false,
+    "multi": false,
+    "current": {},
+    "options": [],
+    "hide": 2
+   },
+   {
+    "name": "run_from",
+    "label": "run_from",
+    "type": "query",
+    "datasource": {
+     "type": "prometheus",
+     "uid": "prometheus"
+    },
+    "query": "query_result(max by (link_from) (obs_run_info{net=\"$net\",run_id=\"$run_id\"}))",
+    "definition": "query_result(max by (link_from) (obs_run_info{net=\"$net\",run_id=\"$run_id\"}))",
+    "regex": "/link_from=\"([^\"]+)\"/",
+    "refresh": 2,
+    "sort": 0,
+    "includeAll": false,
+    "multi": false,
+    "current": {},
+    "options": [],
+    "hide": 2
+   },
+   {
+    "name": "run_to",
+    "label": "run_to",
+    "type": "query",
+    "datasource": {
+     "type": "prometheus",
+     "uid": "prometheus"
+    },
+    "query": "query_result(max by (link_to) (obs_run_info{net=\"$net\",run_id=\"$run_id\"}))",
+    "definition": "query_result(max by (link_to) (obs_run_info{net=\"$net\",run_id=\"$run_id\"}))",
+    "regex": "/link_to=\"([^\"]+)\"/",
+    "refresh": 2,
+    "sort": 0,
+    "includeAll": false,
+    "multi": false,
+    "current": {},
+    "options": [],
+    "hide": 2
    }
   ]
  },
@@ -154,10 +211,60 @@
      "matchAny": false,
      "limit": 500
     }
+   },
+   {
+    "name": "lifecycle",
+    "enable": true,
+    "hide": false,
+    "iconColor": "#B877D9",
+    "datasource": {
+     "type": "loki",
+     "uid": "loki"
+    },
+    "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=~\"run_begin|run_end|start|restart|die\" | during_run!=\"true\" or reason!~\"killed|oom|crashed\"",
+    "target": {
+     "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=~\"run_begin|run_end|start|restart|die\" | during_run!=\"true\" or reason!~\"killed|oom|crashed\"",
+     "refId": "Anno",
+     "queryType": "range"
+    },
+    "instant": false,
+    "titleFormat": "{{node}} {{event}}",
+    "textFormat": "{{msg}}",
+    "tagKeys": "node,event,reason"
+   },
+   {
+    "name": "node stopped during the run",
+    "enable": true,
+    "hide": false,
+    "iconColor": "red",
+    "datasource": {
+     "type": "loki",
+     "uid": "loki"
+    },
+    "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=\"die\" | during_run=\"true\" | reason=~\"killed|oom|crashed\"",
+    "target": {
+     "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=\"die\" | during_run=\"true\" | reason=~\"killed|oom|crashed\"",
+     "refId": "Anno",
+     "queryType": "range"
+    },
+    "instant": false,
+    "titleFormat": "{{node}} {{event}}",
+    "textFormat": "{{msg}}",
+    "tagKeys": "node,event,reason"
    }
   ]
  },
  "links": [
+  {
+   "type": "link",
+   "title": "whole run",
+   "icon": "dashboard",
+   "includeVars": true,
+   "keepTime": false,
+   "targetBlank": false,
+   "tooltip": "Set the time range to this run's start \u2192 end (1 min either side)",
+   "url": "/d/obs-logs?from=${run_from}&to=${run_to}"
+  },
   {
    "type": "dashboards",
    "tags": [
@@ -176,7 +283,7 @@
    "transparent": true,
    "options": {
     "mode": "markdown",
-    "content": "**What did the nodes say?** Every labelled container's output (`source=\"docker\"`) and every JIP-3 event a node pushed (`source=\"jip3\"`, one JSON object per event), for the run and nodes picked above. Narrow it with *search* (a regex)."
+    "content": "**What did the nodes say?** Every labelled container's output (`source=\"docker\"`), every JIP-3 event a node pushed (`source=\"jip3\"`, one JSON object per event) and the containers' lifecycle (`source=\"lifecycle\"`: start, stop, die with exit code), for the run and nodes picked above. Narrow it with *search* (a regex)."
    },
    "id": 1,
    "gridPos": {
@@ -217,7 +324,19 @@
      "color": {
       "mode": "palette-classic"
      },
-     "min": 0
+     "min": 0,
+     "links": [
+      {
+       "title": "Node detail: ${__field.labels.node}",
+       "targetBlank": false,
+       "url": "/d/obs-node?orgId=1&var-net=${net}&var-run_id=${run_id}&var-node=${__field.labels.node}&${__url_time_range}"
+      },
+      {
+       "title": "Logs of ${__field.labels.node} up to here (Explore)",
+       "targetBlank": true,
+       "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%7B%22datasource%22%3A%22loki%22%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__value.time}%22%7D%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bnet%3D%5C%22$net%5C%22%2Crun_id%3D%5C%22$run_id%5C%22%2Cnode%3D%5C%22${__field.labels.node}%5C%22%7D%22%7D%5D%7D%7D"
+      }
+     ]
     },
     "overrides": []
    },

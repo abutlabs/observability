@@ -24,8 +24,8 @@
      "type": "prometheus",
      "uid": "prometheus"
     },
-    "query": "label_values({__name__=~\"up|jam_best_slot\",run_id!=\"\"}, net)",
-    "definition": "label_values({__name__=~\"up|jam_best_slot\",run_id!=\"\"}, net)",
+    "query": "label_values({__name__=~\"up|jam_best_slot|obs_run_info\",run_id!=\"\"}, net)",
+    "definition": "label_values({__name__=~\"up|jam_best_slot|obs_run_info\",run_id!=\"\"}, net)",
     "refresh": 2,
     "sort": 1,
     "includeAll": false,
@@ -42,8 +42,8 @@
      "type": "prometheus",
      "uid": "prometheus"
     },
-    "query": "label_values({__name__=~\"up|jam_best_slot\",net=\"$net\"}, run_id)",
-    "definition": "label_values({__name__=~\"up|jam_best_slot\",net=\"$net\"}, run_id)",
+    "query": "label_values({__name__=~\"up|jam_best_slot|obs_run_info\",net=\"$net\"}, run_id)",
+    "definition": "label_values({__name__=~\"up|jam_best_slot|obs_run_info\",net=\"$net\"}, run_id)",
     "refresh": 2,
     "sort": 2,
     "includeAll": false,
@@ -51,6 +51,63 @@
     "current": {},
     "options": [],
     "hide": 0
+   },
+   {
+    "name": "at",
+    "label": "at",
+    "type": "query",
+    "datasource": {
+     "type": "prometheus",
+     "uid": "prometheus"
+    },
+    "query": "query_result(clamp_max(max(obs_run_end_timestamp_seconds{net=\"$net\",run_id=\"$run_id\"}), ${__to:date:seconds}) or vector(${__to:date:seconds}))",
+    "definition": "query_result(clamp_max(max(obs_run_end_timestamp_seconds{net=\"$net\",run_id=\"$run_id\"}), ${__to:date:seconds}) or vector(${__to:date:seconds}))",
+    "regex": "/\\}\\s+(\\S+)\\s/",
+    "refresh": 2,
+    "sort": 0,
+    "includeAll": false,
+    "multi": false,
+    "current": {},
+    "options": [],
+    "hide": 2
+   },
+   {
+    "name": "run_from",
+    "label": "run_from",
+    "type": "query",
+    "datasource": {
+     "type": "prometheus",
+     "uid": "prometheus"
+    },
+    "query": "query_result(max by (link_from) (obs_run_info{net=\"$net\",run_id=\"$run_id\"}))",
+    "definition": "query_result(max by (link_from) (obs_run_info{net=\"$net\",run_id=\"$run_id\"}))",
+    "regex": "/link_from=\"([^\"]+)\"/",
+    "refresh": 2,
+    "sort": 0,
+    "includeAll": false,
+    "multi": false,
+    "current": {},
+    "options": [],
+    "hide": 2
+   },
+   {
+    "name": "run_to",
+    "label": "run_to",
+    "type": "query",
+    "datasource": {
+     "type": "prometheus",
+     "uid": "prometheus"
+    },
+    "query": "query_result(max by (link_to) (obs_run_info{net=\"$net\",run_id=\"$run_id\"}))",
+    "definition": "query_result(max by (link_to) (obs_run_info{net=\"$net\",run_id=\"$run_id\"}))",
+    "regex": "/link_to=\"([^\"]+)\"/",
+    "refresh": 2,
+    "sort": 0,
+    "includeAll": false,
+    "multi": false,
+    "current": {},
+    "options": [],
+    "hide": 2
    }
   ]
  },
@@ -124,10 +181,60 @@
      "matchAny": false,
      "limit": 500
     }
+   },
+   {
+    "name": "lifecycle",
+    "enable": true,
+    "hide": false,
+    "iconColor": "#B877D9",
+    "datasource": {
+     "type": "loki",
+     "uid": "loki"
+    },
+    "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=~\"run_begin|run_end|start|restart|die\" | during_run!=\"true\" or reason!~\"killed|oom|crashed\"",
+    "target": {
+     "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=~\"run_begin|run_end|start|restart|die\" | during_run!=\"true\" or reason!~\"killed|oom|crashed\"",
+     "refId": "Anno",
+     "queryType": "range"
+    },
+    "instant": false,
+    "titleFormat": "{{node}} {{event}}",
+    "textFormat": "{{msg}}",
+    "tagKeys": "node,event,reason"
+   },
+   {
+    "name": "node stopped during the run",
+    "enable": true,
+    "hide": false,
+    "iconColor": "red",
+    "datasource": {
+     "type": "loki",
+     "uid": "loki"
+    },
+    "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=\"die\" | during_run=\"true\" | reason=~\"killed|oom|crashed\"",
+    "target": {
+     "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=\"die\" | during_run=\"true\" | reason=~\"killed|oom|crashed\"",
+     "refId": "Anno",
+     "queryType": "range"
+    },
+    "instant": false,
+    "titleFormat": "{{node}} {{event}}",
+    "textFormat": "{{msg}}",
+    "tagKeys": "node,event,reason"
    }
   ]
  },
  "links": [
+  {
+   "type": "link",
+   "title": "whole run",
+   "icon": "dashboard",
+   "includeVars": true,
+   "keepTime": false,
+   "targetBlank": false,
+   "tooltip": "Set the time range to this run's start \u2192 end (1 min either side)",
+   "url": "/d/obs-overview?from=${run_from}&to=${run_to}"
+  },
   {
    "type": "dashboards",
    "tags": [
@@ -158,16 +265,28 @@
   },
   {
    "type": "stat",
-   "title": "Nodes reporting",
-   "description": "Nodes with a best block from any path.",
+   "title": "Run",
+   "description": "The run's state from its record (obs begin, obs end): active, ended normally (grey) or active with no node advancing for over 60 s (red). A net run without the obs CLI has no record. Click for the whole run.",
    "datasource": {
     "type": "prometheus",
     "uid": "prometheus"
    },
    "targets": [
     {
-     "expr": "count(max by (node, client) (jam_best_slot{net=\"$net\",run_id=\"$run_id\"}))",
+     "expr": "max(obs_run_end_timestamp_seconds{net=\"$net\",run_id=\"$run_id\"}) * 1000",
      "refId": "A",
+     "range": false,
+     "instant": true
+    },
+    {
+     "expr": "max(obs_run_start_timestamp_seconds{net=\"$net\",run_id=\"$run_id\"}) * 1000 unless on() max(obs_run_end_timestamp_seconds{net=\"$net\",run_id=\"$run_id\"}) unless on() (max(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at))) < ($at - 60))",
+     "refId": "B",
+     "range": false,
+     "instant": true
+    },
+    {
+     "expr": "(max(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at))) < ($at - 60)) * 1000 unless on() max(obs_run_end_timestamp_seconds{net=\"$net\",run_id=\"$run_id\"}) and on() max(obs_run_start_timestamp_seconds{net=\"$net\",run_id=\"$run_id\"})",
+     "refId": "C",
      "range": false,
      "instant": true
     }
@@ -175,13 +294,77 @@
    "fieldConfig": {
     "defaults": {
      "decimals": 0,
-     "noValue": "no data",
+     "noValue": "no run record",
      "color": {
       "mode": "fixed",
       "fixedColor": "text"
-     }
+     },
+     "links": [
+      {
+       "title": "Show the whole run",
+       "url": "/d/${__dashboard.uid}?orgId=1&var-net=${net}&var-run_id=${run_id}&from=${run_from}&to=${run_to}"
+      }
+     ]
     },
-    "overrides": []
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byFrameRefID",
+       "options": "A"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "time:[run ended ]HH:mm:ss[ \u2014 net shut down]"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "text"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byFrameRefID",
+       "options": "B"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "time:[run active since ]HH:mm:ss"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#5794F2"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byFrameRefID",
+       "options": "C"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "time:[net stalled since ]HH:mm:ss[ \u2014 run not ended]"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "red"
+        }
+       }
+      ]
+     }
+    ]
    },
    "options": {
     "graphMode": "none",
@@ -200,21 +383,21 @@
    "gridPos": {
     "x": 0,
     "y": 3,
-    "w": 4,
+    "w": 6,
     "h": 4
    }
   },
   {
    "type": "stat",
-   "title": "Clients",
-   "description": "Distinct client implementations among them.",
+   "title": "Nodes advancing",
+   "description": "Nodes whose best slot moved within 60 s of the net's newest move, at the range's end or, for a finished run, at its end.",
    "datasource": {
     "type": "prometheus",
     "uid": "prometheus"
    },
    "targets": [
     {
-     "expr": "count(count by (client) (max by (node, client) (jam_best_slot{net=\"$net\",run_id=\"$run_id\"})))",
+     "expr": "count(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at)) >= on() group_left() (max(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at))) - 60))",
      "refId": "A",
      "range": false,
      "instant": true
@@ -246,26 +429,26 @@
    },
    "id": 3,
    "gridPos": {
-    "x": 4,
+    "x": 6,
     "y": 3,
-    "w": 4,
+    "w": 3,
     "h": 4
    }
   },
   {
    "type": "stat",
-   "title": "Newest best slot",
-   "description": "The highest best slot any node reports.",
+   "title": "Clients",
+   "description": "Distinct client implementations among them.",
    "datasource": {
     "type": "prometheus",
     "uid": "prometheus"
    },
    "targets": [
     {
-     "expr": "max(max by (node, client) (jam_best_slot{net=\"$net\",run_id=\"$run_id\"}))",
+     "expr": "last_over_time((count(count by (client) (max by (node, client) (jam_best_slot{net=\"$net\",run_id=\"$run_id\"}))))[$__range:$__interval] @ $at)",
      "refId": "A",
-     "range": true,
-     "instant": false
+     "range": false,
+     "instant": true
     }
    ],
    "fieldConfig": {
@@ -280,7 +463,7 @@
     "overrides": []
    },
    "options": {
-    "graphMode": "area",
+    "graphMode": "none",
     "colorMode": "background",
     "textMode": "value",
     "justifyMode": "center",
@@ -294,26 +477,26 @@
    },
    "id": 4,
    "gridPos": {
-    "x": 8,
+    "x": 9,
     "y": 3,
-    "w": 4,
+    "w": 3,
     "h": 4
    }
   },
   {
    "type": "stat",
-   "title": "Newest finalized slot",
-   "description": "The highest finalized slot.",
+   "title": "Newest best slot",
+   "description": "The highest best slot any node reports.",
    "datasource": {
     "type": "prometheus",
     "uid": "prometheus"
    },
    "targets": [
     {
-     "expr": "max(max by (node, client) (jam_finalized_slot{net=\"$net\",run_id=\"$run_id\"}))",
+     "expr": "last_over_time((max(max by (node, client) (jam_best_slot{net=\"$net\",run_id=\"$run_id\"})))[$__range:$__interval] @ $at)",
      "refId": "A",
-     "range": true,
-     "instant": false
+     "range": false,
+     "instant": true
     }
    ],
    "fieldConfig": {
@@ -328,7 +511,7 @@
     "overrides": []
    },
    "options": {
-    "graphMode": "area",
+    "graphMode": "none",
     "colorMode": "background",
     "textMode": "value",
     "justifyMode": "center",
@@ -344,7 +527,55 @@
    "gridPos": {
     "x": 12,
     "y": 3,
-    "w": 4,
+    "w": 3,
+    "h": 4
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Newest finalized slot",
+   "description": "The highest finalized slot.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "last_over_time((max(max by (node, client) (jam_finalized_slot{net=\"$net\",run_id=\"$run_id\"})))[$__range:$__interval] @ $at)",
+     "refId": "A",
+     "range": false,
+     "instant": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "decimals": 0,
+     "noValue": "no data",
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "text"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "graphMode": "none",
+    "colorMode": "background",
+    "textMode": "value",
+    "justifyMode": "center",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "id": 6,
+   "gridPos": {
+    "x": 15,
+    "y": 3,
+    "w": 3,
     "h": 4
    }
   },
@@ -358,10 +589,10 @@
    },
    "targets": [
     {
-     "expr": "max(max by (node, client) (jam_best_slot{net=\"$net\",run_id=\"$run_id\"})) - min(max by (node, client) (jam_best_slot{net=\"$net\",run_id=\"$run_id\"}))",
+     "expr": "last_over_time((max(max by (node, client) (jam_best_slot{net=\"$net\",run_id=\"$run_id\"})) - min(max by (node, client) (jam_best_slot{net=\"$net\",run_id=\"$run_id\"})))[$__range:$__interval] @ $at)",
      "refId": "A",
-     "range": true,
-     "instant": false
+     "range": false,
+     "instant": true
     }
    ],
    "fieldConfig": {
@@ -388,7 +619,7 @@
     "overrides": []
    },
    "options": {
-    "graphMode": "area",
+    "graphMode": "none",
     "colorMode": "background",
     "textMode": "value",
     "justifyMode": "center",
@@ -400,28 +631,28 @@
      "values": false
     }
    },
-   "id": 6,
+   "id": 7,
    "gridPos": {
-    "x": 16,
+    "x": 18,
     "y": 3,
-    "w": 4,
+    "w": 3,
     "h": 4
    }
   },
   {
    "type": "stat",
-   "title": "Nodes stopped reporting (15 min) \u00b7 PASS = 0",
-   "description": "Nodes that reported a best block in the last 15 minutes but report none now.",
+   "title": "Nodes stopped during the run \u00b7 PASS = 0",
+   "description": "Nodes whose best slot stopped advancing more than 60 s before the rest of the net's did, within the range (up to the run's end). A net shut down at the end of its run stops all together and is not counted.",
    "datasource": {
     "type": "prometheus",
     "uid": "prometheus"
    },
    "targets": [
     {
-     "expr": "count(max by (node) (last_over_time(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[15m]))) - (count(max by (node, client) (jam_best_slot{net=\"$net\",run_id=\"$run_id\"})) or vector(0))",
+     "expr": "count(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at)) < on() group_left() (max(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at))) - 60)) or (max(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at))) * 0)",
      "refId": "A",
-     "range": true,
-     "instant": false
+     "range": false,
+     "instant": true
     }
    ],
    "fieldConfig": {
@@ -448,7 +679,7 @@
     "overrides": []
    },
    "options": {
-    "graphMode": "area",
+    "graphMode": "none",
     "colorMode": "background",
     "textMode": "value",
     "justifyMode": "center",
@@ -460,61 +691,103 @@
      "values": false
     }
    },
-   "id": 7,
+   "id": 8,
    "gridPos": {
-    "x": 20,
+    "x": 21,
     "y": 3,
-    "w": 4,
+    "w": 3,
     "h": 4
    }
   },
   {
    "type": "table",
    "title": "Nodes",
-   "description": "Instant values per node. version and GP come from jam_node_info (the node's own metrics or its JIP-3 node information).",
+   "description": "One row per node, at the range's end or, for a finished run, at its end. state: advancing, stopped during the run (its best slot stopped over 60 s before the rest of the net's), or net stalled. last advanced: when its best slot last moved (to within a minute). stopped and why: the container's last stop in the range (the lifecycle service). Click a node for Node detail, or for its last minutes of logs.",
    "datasource": {
     "type": "prometheus",
     "uid": "prometheus"
    },
    "targets": [
     {
-     "expr": "max by (node, client) (jam_best_slot{net=\"$net\",run_id=\"$run_id\"})",
+     "expr": "last_over_time((max by (node, client) (jam_best_slot{net=\"$net\",run_id=\"$run_id\"}))[$__range:$__interval] @ $at)",
      "refId": "A",
      "format": "table",
      "instant": true,
      "range": false
     },
     {
-     "expr": "max by (node, client) (jam_finalized_slot{net=\"$net\",run_id=\"$run_id\"})",
+     "expr": "last_over_time((max by (node, client) (jam_finalized_slot{net=\"$net\",run_id=\"$run_id\"}))[$__range:$__interval] @ $at)",
      "refId": "B",
      "format": "table",
      "instant": true,
      "range": false
     },
     {
-     "expr": "max by (node, client) (jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) - (max by (node, client) (jam_finalized_slot{net=\"$net\",run_id=\"$run_id\"}) > 0)",
+     "expr": "last_over_time((max by (node, client) (jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) - (max by (node, client) (jam_finalized_slot{net=\"$net\",run_id=\"$run_id\"}) > 0))[$__range:$__interval] @ $at)",
      "refId": "C",
      "format": "table",
      "instant": true,
      "range": false
     },
     {
-     "expr": "sum by (node, client) (max by (node, client, role) (jam_peers{net=\"$net\",run_id=\"$run_id\"}))",
+     "expr": "last_over_time((sum by (node, client) (max by (node, client, role) (jam_peers{net=\"$net\",run_id=\"$run_id\"})))[$__range:$__interval] @ $at)",
      "refId": "D",
      "format": "table",
      "instant": true,
      "range": false
     },
     {
-     "expr": "max by (node, client, client_version, gp_version) (jam_node_info{net=\"$net\",run_id=\"$run_id\",client_version!=\"\"})",
+     "expr": "last_over_time((max by (node, client, client_version, gp_version) (jam_node_info{net=\"$net\",run_id=\"$run_id\",client_version!=\"\"}))[$__range:$__interval] @ $at)",
      "refId": "E",
      "format": "table",
      "instant": true,
      "range": false
     },
     {
-     "expr": "count by (node, client) (group by (node, client, source) (label_replace(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}, \"source\", \"metrics\", \"source\", \"\")))",
+     "expr": "last_over_time((count by (node, client) (group by (node, client, source) (label_replace(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}, \"source\", \"metrics\", \"source\", \"\"))))[$__range:$__interval] @ $at)",
      "refId": "F",
+     "format": "table",
+     "instant": true,
+     "range": false
+    },
+    {
+     "expr": "(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at)) >= bool on() group_left() (max(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at))) - 60)) * on() group_left() (1 + (max(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at))) < bool ($at - 60)))",
+     "refId": "G",
+     "format": "table",
+     "instant": true,
+     "range": false
+    },
+    {
+     "expr": "max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at)) * 1000",
+     "refId": "H",
+     "format": "table",
+     "instant": true,
+     "range": false
+    },
+    {
+     "expr": "max by (node, client, reason) (last_over_time(obs_container_stopped_timestamp_seconds{net=\"$net\",run_id=\"$run_id\"}[$__range] @ $at)) * 1000 and on(node) group by (node) (last_over_time(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[$__range] @ $at))",
+     "refId": "I",
+     "format": "table",
+     "instant": true,
+     "range": false
+    },
+    {
+     "expr": "max by (node, client) (last_over_time(obs_container_last_exit_code{net=\"$net\",run_id=\"$run_id\"}[$__range] @ $at)) and on(node) group by (node) (last_over_time(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[$__range] @ $at))",
+     "refId": "J",
+     "format": "table",
+     "instant": true,
+     "range": false
+    },
+    {
+     "expr": "(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at)) - 300) * 1000",
+     "refId": "K",
+     "format": "table",
+     "instant": true,
+     "range": false
+    },
+    {
+     "expr": "(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at)) + 60) * 1000",
+     "refId": "L",
      "format": "table",
      "instant": true,
      "range": false
@@ -527,7 +800,19 @@
       "cellOptions": {
        "type": "auto"
       }
-     }
+     },
+     "links": [
+      {
+       "title": "Node detail: ${__data.fields.node}",
+       "targetBlank": false,
+       "url": "/d/obs-node?orgId=1&var-net=${net}&var-run_id=${run_id}&var-node=${__data.fields.node}&${__url_time_range}"
+      },
+      {
+       "title": "Logs of ${__data.fields.node} up to here (Explore)",
+       "targetBlank": true,
+       "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%7B%22datasource%22%3A%22loki%22%2C%22range%22%3A%7B%22from%22%3A%22${__data.fields.logs_from}%22%2C%22to%22%3A%22${__data.fields.logs_to}%22%7D%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bnet%3D%5C%22$net%5C%22%2Crun_id%3D%5C%22$run_id%5C%22%2Cnode%3D%5C%22${__data.fields.node}%5C%22%7D%22%7D%5D%7D%7D"
+      }
+     ]
     },
     "overrides": [
      {
@@ -559,6 +844,73 @@
         }
        }
       ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "state"
+      },
+      "properties": [
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "0": {
+            "text": "stopped during the run",
+            "color": "red",
+            "index": 0
+           },
+           "1": {
+            "text": "advancing",
+            "color": "green",
+            "index": 1
+           },
+           "2": {
+            "text": "net stalled",
+            "color": "#8e8e8e",
+            "index": 2
+           }
+          }
+         }
+        ]
+       },
+       {
+        "id": "custom.width",
+        "value": 170
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-background"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byRegexp",
+       "options": "^(last advanced|stopped)$"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "dateTimeAsLocalNoDateIfToday"
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byRegexp",
+       "options": "^logs_(from|to)$"
+      },
+      "properties": [
+       {
+        "id": "custom.hidden",
+        "value": true
+       }
+      ]
      }
     ]
    },
@@ -577,22 +929,36 @@
       "indexByName": {
        "node": 0,
        "client": 1,
-       "client_version": 2,
-       "gp_version": 3,
-       "Value #A": 4,
-       "Value #B": 5,
-       "Value #C": 6,
-       "Value #D": 7,
-       "Value #F": 8
+       "Value #G": 2,
+       "client_version": 3,
+       "gp_version": 4,
+       "Value #A": 5,
+       "Value #B": 6,
+       "Value #C": 7,
+       "Value #D": 8,
+       "Value #F": 9,
+       "Value #H": 10,
+       "Value #I": 11,
+       "reason": 12,
+       "Value #J": 13,
+       "Value #K": 14,
+       "Value #L": 15
       },
       "renameByName": {
        "client_version": "version",
        "gp_version": "GP",
+       "Value #G": "state",
        "Value #A": "best slot",
        "Value #B": "finalized slot",
        "Value #C": "finality lag",
        "Value #D": "peers",
-       "Value #F": "paths"
+       "Value #F": "paths",
+       "Value #H": "last advanced",
+       "Value #I": "stopped",
+       "reason": "why",
+       "Value #J": "exit code",
+       "Value #K": "logs_from",
+       "Value #L": "logs_to"
       }
      }
     }
@@ -607,7 +973,7 @@
      }
     ]
    },
-   "id": 8,
+   "id": 9,
    "gridPos": {
     "x": 0,
     "y": 7,
@@ -646,7 +1012,19 @@
      "color": {
       "mode": "palette-classic"
      },
-     "decimals": 0
+     "decimals": 0,
+     "links": [
+      {
+       "title": "Node detail: ${__field.labels.node}",
+       "targetBlank": false,
+       "url": "/d/obs-node?orgId=1&var-net=${net}&var-run_id=${run_id}&var-node=${__field.labels.node}&${__url_time_range}"
+      },
+      {
+       "title": "Logs of ${__field.labels.node} up to here (Explore)",
+       "targetBlank": true,
+       "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%7B%22datasource%22%3A%22loki%22%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__value.time}%22%7D%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bnet%3D%5C%22$net%5C%22%2Crun_id%3D%5C%22$run_id%5C%22%2Cnode%3D%5C%22${__field.labels.node}%5C%22%7D%22%7D%5D%7D%7D"
+      }
+     ]
     },
     "overrides": []
    },
@@ -661,7 +1039,7 @@
      "sort": "desc"
     }
    },
-   "id": 9,
+   "id": 10,
    "gridPos": {
     "x": 0,
     "y": 17,
@@ -700,7 +1078,19 @@
      "color": {
       "mode": "palette-classic"
      },
-     "decimals": 0
+     "decimals": 0,
+     "links": [
+      {
+       "title": "Node detail: ${__field.labels.node}",
+       "targetBlank": false,
+       "url": "/d/obs-node?orgId=1&var-net=${net}&var-run_id=${run_id}&var-node=${__field.labels.node}&${__url_time_range}"
+      },
+      {
+       "title": "Logs of ${__field.labels.node} up to here (Explore)",
+       "targetBlank": true,
+       "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%7B%22datasource%22%3A%22loki%22%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__value.time}%22%7D%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bnet%3D%5C%22$net%5C%22%2Crun_id%3D%5C%22$run_id%5C%22%2Cnode%3D%5C%22${__field.labels.node}%5C%22%7D%22%7D%5D%7D%7D"
+      }
+     ]
     },
     "overrides": []
    },
@@ -715,7 +1105,7 @@
      "sort": "desc"
     }
    },
-   "id": 10,
+   "id": 11,
    "gridPos": {
     "x": 12,
     "y": 17,
@@ -769,7 +1159,7 @@
      "sort": "desc"
     }
    },
-   "id": 11,
+   "id": 12,
    "gridPos": {
     "x": 0,
     "y": 25,
@@ -830,7 +1220,7 @@
      "sort": "desc"
     }
    },
-   "id": 12,
+   "id": 13,
    "gridPos": {
     "x": 8,
     "y": 25,
@@ -870,7 +1260,19 @@
       "mode": "palette-classic"
      },
      "decimals": 0,
-     "min": 0
+     "min": 0,
+     "links": [
+      {
+       "title": "Node detail: ${__field.labels.node}",
+       "targetBlank": false,
+       "url": "/d/obs-node?orgId=1&var-net=${net}&var-run_id=${run_id}&var-node=${__field.labels.node}&${__url_time_range}"
+      },
+      {
+       "title": "Logs of ${__field.labels.node} up to here (Explore)",
+       "targetBlank": true,
+       "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%7B%22datasource%22%3A%22loki%22%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__value.time}%22%7D%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bnet%3D%5C%22$net%5C%22%2Crun_id%3D%5C%22$run_id%5C%22%2Cnode%3D%5C%22${__field.labels.node}%5C%22%7D%22%7D%5D%7D%7D"
+      }
+     ]
     },
     "overrides": []
    },
@@ -885,7 +1287,7 @@
      "sort": "desc"
     }
    },
-   "id": 13,
+   "id": 14,
    "gridPos": {
     "x": 16,
     "y": 25,
@@ -945,7 +1347,7 @@
      "sort": "desc"
     }
    },
-   "id": 14,
+   "id": 15,
    "gridPos": {
     "x": 0,
     "y": 33,
@@ -1000,7 +1402,7 @@
      "sort": "desc"
     }
    },
-   "id": 15,
+   "id": 16,
    "gridPos": {
     "x": 8,
     "y": 33,
@@ -1061,7 +1463,7 @@
      "sort": "desc"
     }
    },
-   "id": 16,
+   "id": 17,
    "gridPos": {
     "x": 16,
     "y": 33,
@@ -1116,7 +1518,7 @@
      "sort": "desc"
     }
    },
-   "id": 17,
+   "id": 18,
    "gridPos": {
     "x": 0,
     "y": 41,
@@ -1156,7 +1558,19 @@
       "mode": "palette-classic"
      },
      "decimals": 0,
-     "min": 0
+     "min": 0,
+     "links": [
+      {
+       "title": "Node detail: ${__field.labels.node}",
+       "targetBlank": false,
+       "url": "/d/obs-node?orgId=1&var-net=${net}&var-run_id=${run_id}&var-node=${__field.labels.node}&${__url_time_range}"
+      },
+      {
+       "title": "Logs of ${__field.labels.node} up to here (Explore)",
+       "targetBlank": true,
+       "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%7B%22datasource%22%3A%22loki%22%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__value.time}%22%7D%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bnet%3D%5C%22$net%5C%22%2Crun_id%3D%5C%22$run_id%5C%22%2Cnode%3D%5C%22${__field.labels.node}%5C%22%7D%22%7D%5D%7D%7D"
+      }
+     ]
     },
     "overrides": []
    },
@@ -1171,12 +1585,160 @@
      "sort": "desc"
     }
    },
-   "id": 18,
+   "id": 19,
    "gridPos": {
     "x": 12,
     "y": 41,
     "w": 12,
     "h": 6
+   }
+  },
+  {
+   "type": "table",
+   "title": "Runs of this net, newest first",
+   "description": "The net's recorded runs (obs begin, obs end). Click a run id to open it here over its whole time range.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "max by (run_id, kind, link_from, link_to) (obs_run_info{net=\"$net\"})",
+     "refId": "A",
+     "format": "table",
+     "instant": true,
+     "range": false
+    },
+    {
+     "expr": "max by (run_id) (obs_run_start_timestamp_seconds{net=\"$net\"}) * 1000",
+     "refId": "B",
+     "format": "table",
+     "instant": true,
+     "range": false
+    },
+    {
+     "expr": "max by (run_id) (obs_run_end_timestamp_seconds{net=\"$net\"}) * 1000",
+     "refId": "C",
+     "format": "table",
+     "instant": true,
+     "range": false
+    },
+    {
+     "expr": "max by (run_id) (obs_run_end_timestamp_seconds{net=\"$net\"} - on(run_id) obs_run_start_timestamp_seconds{net=\"$net\"})",
+     "refId": "D",
+     "format": "table",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "align": "auto",
+      "cellOptions": {
+       "type": "auto"
+      }
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byRegexp",
+       "options": "^(started|ended)$"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "dateTimeAsIso"
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "duration"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "s"
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byRegexp",
+       "options": "^link_(from|to)$"
+      },
+      "properties": [
+       {
+        "id": "custom.hidden",
+        "value": true
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "run_id"
+      },
+      "properties": [
+       {
+        "id": "links",
+        "value": [
+         {
+          "title": "Open this run over its whole time range",
+          "url": "/d/obs-overview?orgId=1&var-net=${net}&var-run_id=${__value.raw}&from=${__data.fields.link_from}&to=${__data.fields.link_to}"
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "transformations": [
+    {
+     "id": "merge",
+     "options": {}
+    },
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Time": true,
+       "Value #A": true
+      },
+      "indexByName": {
+       "run_id": 0,
+       "kind": 1,
+       "Value #B": 2,
+       "Value #C": 3,
+       "Value #D": 4
+      },
+      "renameByName": {
+       "Value #B": "started",
+       "Value #C": "ended",
+       "Value #D": "duration"
+      }
+     }
+    }
+   ],
+   "options": {
+    "showHeader": true,
+    "cellHeight": "sm",
+    "sortBy": [
+     {
+      "displayName": "started",
+      "desc": true
+     }
+    ]
+   },
+   "id": 20,
+   "gridPos": {
+    "x": 0,
+    "y": 47,
+    "w": 24,
+    "h": 7
    }
   }
  ]

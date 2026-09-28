@@ -31,12 +31,9 @@ import collections
 import ipaddress
 import json
 import os
-import queue
 import sys
 import threading
 import time
-import urllib.error
-import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -139,68 +136,6 @@ class JamMetrics:
         for f in self.m.families.values():
             if all(k in f.labelnames for k in key):
                 f.remove(**key)
-
-
-# ---- Loki ------------------------------------------------------------------------------
-class LokiPusher:
-    """Batches log lines and pushes them to Loki's JSON push API about every `interval`
-    seconds. The queue is bounded: past `maxsize` lines are dropped and counted."""
-
-    def __init__(self, url, on_drop, interval=1.0, maxsize=20000, batch=5000):
-        self.url, self.on_drop, self.interval, self.batch = url, on_drop, interval, batch
-        self.q = queue.Queue(maxsize)
-        self.pushed = 0
-        self._lock = threading.Lock()
-        self._stop = threading.Event()
-        self._thread = threading.Thread(target=self._run, daemon=True)
-        self._thread.start()
-
-    def put(self, stream, ns, line):
-        try:
-            self.q.put_nowait((stream, ns, line))
-        except queue.Full:
-            self.on_drop(dict(stream), 1)
-
-    def flush(self):
-        """Push everything queued now (the background thread does this every interval)."""
-        with self._lock:
-            while True:
-                items = []
-                while len(items) < self.batch:
-                    try:
-                        items.append(self.q.get_nowait())
-                    except queue.Empty:
-                        break
-                if not items:
-                    return
-                self._push(items)
-
-    def _push(self, items):
-        streams = collections.OrderedDict()
-        for stream, ns, line in items:
-            streams.setdefault(stream, []).append([str(ns), line])
-        body = {"streams": [{"stream": dict(s), "values": v} for s, v in streams.items()]}
-        req = urllib.request.Request(self.url, data=json.dumps(body).encode(), method="POST",
-                                     headers={"Content-Type": "application/json"})
-        try:
-            with urllib.request.urlopen(req, timeout=10) as r:
-                r.read()
-            self.pushed += len(items)
-        except (OSError, urllib.error.URLError) as e:
-            log("loki push failed (%d lines): %s" % (len(items), e))
-            for s, v in streams.items():
-                self.on_drop(dict(s), len(v))
-
-    def _run(self):
-        while not self._stop.wait(self.interval):
-            try:
-                self.flush()
-            except Exception as e:             # noqa: BLE001 - the pusher must not die
-                log("loki pusher: %s" % e)
-
-    def stop(self):
-        self._stop.set()
-        self.flush()
 
 
 # ---- labels ----------------------------------------------------------------------------
@@ -488,7 +423,8 @@ class Receiver:
         self.jm = JamMetrics(self.metrics)
         self.labeler = labeler or Labeler()
         self.max_message, self.max_pending, self.forget_secs = max_message, max_pending, forget_secs
-        self.loki = LokiPusher(loki_url, self._loki_dropped, loki_interval) if loki_url else None
+        self.loki = (obslib.LokiPusher(loki_url, self._loki_dropped, loki_interval, log=log)
+                     if loki_url else None)
         self.active = {}                    # Connection -> labels
         self.open_count = collections.Counter()   # label key -> open connections
         self.gone = {}                      # label key -> unix time the last one closed

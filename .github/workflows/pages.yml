@@ -1,0 +1,46 @@
+# The course site, learning-observability/, on GitHub Pages:
+# https://abutlabs.github.io/observability/
+#
+# Builds with learning-observability/tools/build.sh (the same script a local preview uses)
+# and deploys the result. Needs the repository's Pages source set to "GitHub Actions".
+name: Course site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "learning-observability/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# one deployment at a time; a newer push waits rather than cancelling one mid-way
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - name: Build the site
+        run: learning-observability/tools/build.sh
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: learning-observability/_site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

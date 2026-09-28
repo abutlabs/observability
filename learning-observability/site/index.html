@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Learn to monitor and diagnose JAM networks, including mixed-client ones, with the abutlabs observability stack: Prometheus, Grafana, Loki, Alloy, JIP-3 and JIP-2.">
+    <title>Learning Observability</title>
+    <script>try { var t = localStorage.getItem('lo-theme'); t = t ? JSON.parse(t) : (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'); if (t === 'light') document.documentElement.setAttribute('data-theme', 'light'); } catch (e) {}</script>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2 14h4l3-8 4 13 3-9 2 4h4' fill='none' stroke='%233ec7b0' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <a href="#main" class="skip-link">Skip to content</a>
+    <nav class="top-nav" aria-label="Main">
+        <a href="index.html" class="logo">
+            <svg class="logo-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 14h4l3-8 4 13 3-9 2 4h4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent)"/></svg>
+            <span>Learning Observability</span>
+        </a>
+        <div class="nav-links">
+            <a href="lesson.html?lesson=00-welcome/01-why-observe">Lessons</a>
+            <a href="lesson.html?lesson=exercises/README" class="wide">Labs</a>
+            <a href="https://github.com/abutlabs/observability" target="_blank" rel="noopener" class="wide">GitHub</a>
+            <button id="theme-toggle" class="icon-button theme-toggle" type="button" aria-label="Switch light or dark theme">
+                <span class="sun" aria-hidden="true">&#9728;</span><span class="moon" aria-hidden="true">&#9790;</span>
+            </button>
+        </div>
+    </nav>
+
+    <main class="landing" id="main">
+        <section class="hero">
+            <div class="eyebrow">JAM networks · any client mix</div>
+            <h1>See inside a JAM network.</h1>
+            <p>
+                A practical course on the abutlabs observability stack: Prometheus, Grafana,
+                Loki and Alloy, fed by each node's own metrics, its JIP-3 telemetry or its JIP-2
+                RPC. You learn what every piece does, how to read the dashboards, how a soak
+                test judges a network, and how to find the cause when one fails.
+            </p>
+            <div class="cta-row">
+                <a class="cta" href="lesson.html?lesson=00-welcome/01-why-observe">Start the course</a>
+                <a class="cta secondary" href="lesson.html?lesson=05-case-study/01-the-symptom">Jump to the case study</a>
+            </div>
+        </section>
+
+        <div class="signal" role="img" aria-label="The refine time query from the case study, and its peak on the failing and the passing run: 13.2 seconds and 0.60 seconds.">rate(lasair_guarantor_refine_seconds_sum[5m]) / rate(lasair_guarantor_refine_seconds_count[5m])
+
+  <i>failing</i> run  lasair6-20260928T153915Z   peak <i>13.2 s</i> per package   clearing SLO 0.66
+  <b>passing</b> run  lasair6-20260928T173608Z   peak <b>0.60 s</b> per package   clearing SLO 1.000</div>
+
+        <h2 class="section-title">What you will be able to do</h2>
+        <div class="outcomes">
+            <div class="outcome">
+                <h3>Run the stack</h3>
+                <p>Start it, check it, and know what each of its eight services does and which port it answers on.</p>
+            </div>
+            <div class="outcome">
+                <h3>Get any client in</h3>
+                <p>Through its <code>/metrics</code>, its JIP-3 telemetry or its JIP-2 RPC, labelled so one dashboard shows every client.</p>
+            </div>
+            <div class="outcome">
+                <h3>Read the dashboards</h3>
+                <p>Know the question each one answers, and write your own PromQL and LogQL when a panel is not enough.</p>
+            </div>
+            <div class="outcome">
+                <h3>Diagnose a failure</h3>
+                <p>Follow a real failing soak from its symptom to its cause, then prove the fix with the numbers.</p>
+            </div>
+        </div>
+
+        <h2 class="section-title">Tracks</h2>
+        <div id="tracks">
+            <noscript><p>This page lists the tracks with JavaScript. Without it, read the lessons on
+            <a href="https://github.com/abutlabs/observability/tree/main/learning-observability">GitHub</a>.</p></noscript>
+        </div>
+    </main>
+
+    <footer>
+        Part of <a href="https://github.com/abutlabs/observability" target="_blank" rel="noopener">abutlabs/observability</a> · MIT
+    </footer>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

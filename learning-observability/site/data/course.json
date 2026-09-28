@@ -1,0 +1,272 @@
+{
+  "title": "Learning Observability",
+  "repo": "https://github.com/abutlabs/observability",
+  "branch": "main",
+  "tracks": [
+    {
+      "id": "00-welcome",
+      "number": "0",
+      "title": "Welcome",
+      "description": "What observability is, the words it uses, and how to read a dashboard: from zero to reading one with confidence.",
+      "lessons": [
+        {
+          "id": "01-why-observe",
+          "title": "Why a JAM network needs observability",
+          "minutes": 5
+        },
+        {
+          "id": "02-the-words-you-need",
+          "title": "The words you need",
+          "minutes": 8
+        },
+        {
+          "id": "03-reading-your-first-dashboard",
+          "title": "Reading your first dashboard",
+          "minutes": 8
+        },
+        {
+          "id": "04-how-to-use-this-course",
+          "title": "How to use this course",
+          "minutes": 6
+        }
+      ]
+    },
+    {
+      "id": "01-the-stack",
+      "number": "1",
+      "title": "The stack",
+      "description": "The eight services, how they connect, how to run the stack, and how runs, annotations and links work.",
+      "lessons": [
+        {
+          "id": "01-components",
+          "title": "The eight services",
+          "minutes": 8
+        },
+        {
+          "id": "02-how-it-fits-together",
+          "title": "How the pieces fit together",
+          "minutes": 6
+        },
+        {
+          "id": "03-running-the-stack",
+          "title": "Running the stack",
+          "minutes": 7
+        },
+        {
+          "id": "04-runs-annotations-links",
+          "title": "Runs, annotations and links",
+          "minutes": 7
+        }
+      ]
+    },
+    {
+      "id": "02-telemetry",
+      "number": "2",
+      "title": "Telemetry from JAM nodes",
+      "description": "The jam_* metrics, the three ways a node gets in (its own metrics, JIP-3, JIP-2), lasair's telemetry, and plugging in a new client.",
+      "lessons": [
+        {
+          "id": "01-the-jam-metrics",
+          "title": "The jam_* metrics",
+          "minutes": 6
+        },
+        {
+          "id": "02-three-paths-one-label-model",
+          "title": "Three paths, one label model",
+          "minutes": 6
+        },
+        {
+          "id": "03-jip3-and-jip2",
+          "title": "JIP-3 and JIP-2: telemetry for any client",
+          "minutes": 7
+        },
+        {
+          "id": "04-lasair-as-an-example",
+          "title": "lasair as an example",
+          "minutes": 7
+        },
+        {
+          "id": "05-plugging-in-a-client",
+          "title": "Plugging in a new client",
+          "minutes": 5
+        }
+      ]
+    },
+    {
+      "id": "03-dashboards",
+      "number": "3",
+      "title": "Reading the dashboards",
+      "description": "Every dashboard and the question it answers, the drill-down path when something looks wrong, and PromQL and LogQL.",
+      "lessons": [
+        {
+          "id": "01-how-to-read-a-dashboard",
+          "title": "How to read a dashboard",
+          "minutes": 7
+        },
+        {
+          "id": "02-network-overview-and-chain-health",
+          "title": "Network overview and Chain health",
+          "minutes": 7
+        },
+        {
+          "id": "03-logs-and-self-health",
+          "title": "Logs and obs self-health",
+          "minutes": 5
+        },
+        {
+          "id": "04-lasair-dashboards",
+          "title": "The lasair dashboards",
+          "minutes": 9
+        },
+        {
+          "id": "05-dex-and-soak-runs",
+          "title": "The DEX and Soak runs dashboards",
+          "minutes": 6
+        },
+        {
+          "id": "06-the-drill-down-path",
+          "title": "When something looks wrong: the drill-down path",
+          "minutes": 7
+        },
+        {
+          "id": "07-promql-basics",
+          "title": "PromQL basics",
+          "minutes": 6
+        },
+        {
+          "id": "08-logql-basics",
+          "title": "LogQL basics",
+          "minutes": 5
+        }
+      ]
+    },
+    {
+      "id": "04-soak-tests",
+      "number": "4",
+      "title": "Soak tests",
+      "description": "What a soak proves, how to run one, and how to read its verdict.",
+      "lessons": [
+        {
+          "id": "01-what-a-soak-proves",
+          "title": "What a soak proves",
+          "minutes": 5
+        },
+        {
+          "id": "02-running-a-soak",
+          "title": "Running a soak",
+          "minutes": 5
+        },
+        {
+          "id": "03-reading-the-results",
+          "title": "Reading the results",
+          "minutes": 7
+        }
+      ]
+    },
+    {
+      "id": "05-case-study",
+      "number": "5",
+      "title": "Case study: a failing soak",
+      "description": "A real investigation: an all-lasair DEX soak that failed after 25 minutes, followed from symptom to cause to proof of the fix.",
+      "lessons": [
+        {
+          "id": "01-the-symptom",
+          "title": "The symptom",
+          "minutes": 6
+        },
+        {
+          "id": "02-the-dex-backlog",
+          "title": "The DEX backlog",
+          "minutes": 5
+        },
+        {
+          "id": "03-refine-time",
+          "title": "Refine time",
+          "minutes": 5
+        },
+        {
+          "id": "04-the-logs",
+          "title": "The logs",
+          "minutes": 5
+        },
+        {
+          "id": "05-where-the-window-goes",
+          "title": "Where the window goes",
+          "minutes": 8
+        },
+        {
+          "id": "06-the-fix-and-the-proof",
+          "title": "The fix and the proof",
+          "minutes": 8
+        }
+      ]
+    },
+    {
+      "id": "06-mixed-networks",
+      "number": "6",
+      "title": "Mixed networks",
+      "description": "lasair and PolkaJam on one chain, what cross-client telemetry reveals, and adding another client.",
+      "lessons": [
+        {
+          "id": "01-lasair-and-polkajam",
+          "title": "lasair and PolkaJam on one chain",
+          "minutes": 6
+        },
+        {
+          "id": "02-what-cross-client-telemetry-reveals",
+          "title": "What cross-client telemetry reveals",
+          "minutes": 5
+        },
+        {
+          "id": "03-adding-another-client",
+          "title": "Adding another client",
+          "minutes": 5
+        }
+      ]
+    },
+    {
+      "id": "exercises",
+      "number": "Labs",
+      "title": "Labs and exercises",
+      "dir": "exercises",
+      "description": "Hands-on labs with real commands and expected results, and PromQL and LogQL exercises with answers.",
+      "lessons": [
+        {
+          "id": "README",
+          "title": "Labs and exercises",
+          "minutes": 3
+        },
+        {
+          "id": "lab-1-start-the-stack",
+          "title": "Lab 1: Start the stack",
+          "minutes": 15
+        },
+        {
+          "id": "lab-2-jip3-without-docker",
+          "title": "Lab 2: JIP-3 without Docker",
+          "minutes": 10
+        },
+        {
+          "id": "lab-3-register-a-process",
+          "title": "Lab 3: Register a process",
+          "minutes": 15
+        },
+        {
+          "id": "lab-4-replay-the-case-study",
+          "title": "Lab 4: Replay the case study",
+          "minutes": 30
+        },
+        {
+          "id": "promql",
+          "title": "PromQL exercises",
+          "minutes": 20
+        },
+        {
+          "id": "logql",
+          "title": "LogQL exercises",
+          "minutes": 15
+        }
+      ]
+    }
+  ]
+}

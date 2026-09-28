@@ -12,6 +12,9 @@ network whatever clients run it.
 Projects keep their own dashboards as code and plug them in as Grafana folders; this repo
 owns only the infrastructure and the cross-client ("platform") dashboards.
 
+**New to it? Take the course:** https://abutlabs.github.io/observability/ (see
+[Learn it](#learn-it)).
+
 ```sh
 ./obs up                 # start the stack (Docker Compose, project "obs")
 open http://localhost:3300
@@ -22,6 +25,7 @@ is a stock image, and the JAM collectors are standard-library Python on `python:
 
 ## Contents
 
+- [Learn it](#learn-it)
 - [Architecture](#architecture)
 - [Services and ports](#services-and-ports)
 - [Three ingestion paths](#three-ingestion-paths)
@@ -35,6 +39,17 @@ is a stock image, and the JAM collectors are standard-library Python on `python:
 - [Traces](#traces)
 - [Security](#security)
 - [Repository layout](#repository-layout)
+
+## Learn it
+
+[**Learning Observability**](learning-observability/README.md), online at
+https://abutlabs.github.io/observability/, is a course on this stack for someone new to
+observability: the words it uses, each service, how JAM nodes of any client report into
+it, every dashboard and the question it answers, PromQL and LogQL, soak tests, and a real
+investigation of a failing lasair soak from symptom to fix. Its labs use the commands in
+this README. The lessons are markdown in
+[`learning-observability/content/`](learning-observability/content/), readable on GitHub
+as well.
 
 ## Architecture
 
@@ -317,6 +332,7 @@ the first `up`.
 | `dashgen/` | dashboard helpers and the platform generator |
 | `docs/metrics.md` | the `jam_*` metrics the dashboards read |
 | `tests/` | `python3 -m unittest discover -s tests` |
+| `learning-observability/` | the course ([Learn it](#learn-it)); `.github/workflows/pages.yml` publishes it |
 
 ## License
 

@@ -481,7 +481,7 @@
    },
    "targets": [
     {
-     "expr": "max by (node, client) (jam_best_slot{net=\"$net\",run_id=\"$run_id\"})",
+     "expr": "max by (node, client) (jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) > 0",
      "legendFormat": "{{node}} \u00b7 {{client}}",
      "refId": "A",
      "range": true

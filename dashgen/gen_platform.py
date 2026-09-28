@@ -67,7 +67,8 @@ def overview():
     L.add(table("Nodes", [
         (BEST, "A"), (FINAL, "B"), (FIN_LAG, "C"),
         ("sum by (node, client) (max by (node, client, role) (jam_peers{%s}))" % SEL, "D"),
-        ("max by (node, client, client_version, gp_version) (jam_node_info{%s})" % SEL, "E"),
+        # the version from whichever path knows it (JIP-2 cannot tell)
+        ('max by (node, client, client_version, gp_version) (jam_node_info{%s,client_version!=""})' % SEL, "E"),
         ("count by (node, client) (group by (node, client, source) (%s))" % SOURCES, "F")],
         "Instant values per node. version and GP come from jam_node_info (the node's own "
         "metrics or its JIP-3 node information).",
@@ -86,9 +87,9 @@ def overview():
             {"id": "custom.cellOptions", "value": {"type": "color-background"}},
             {"id": "thresholds", "value": {"mode": "absolute", "steps": [
                 {"color": "green", "value": None}, {"color": "red", "value": EPOCH_SLOTS + 1}]}}]}],
-        sort=("node", False)), 24, 8)
+        sort=("node", False)), 24, 10)
 
-    L.add(ts("Best slot per node", [(BEST, "{{node}} · {{client}}")],
+    L.add(ts("Best slot per node", [("%s > 0" % BEST, "{{node}} · {{client}}")],
              "Each node's best slot. The lines climb together; one that flattens stopped "
              "importing.", decimals=0, min0=False), 12, 8)
     L.add(ts("Finalized slot per node", [("%s > 0" % FINAL, "{{node}} · {{client}}")],
@@ -166,7 +167,7 @@ def chain():
                "collector that compares hashes, such as the JIP-2 exporter).", "==", 0), 4, 4)
 
     L.newline()
-    L.add(ts("Best slot per node", [(BEST, "{{node}} · {{client}}")],
+    L.add(ts("Best slot per node", [("%s > 0" % BEST, "{{node}} · {{client}}")],
              "Slot of each node's best block. Lines climb together; one that flattens stopped "
              "importing.", decimals=0, min0=False), 12, 8)
     L.add(ts("Finalized slot per node", [("%s > 0" % FINAL, "{{node}} · {{client}}")],

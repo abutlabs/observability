@@ -125,6 +125,39 @@ class NetJoin(unittest.TestCase):
         self.assertFalse(netjoin.relevant(ev("start", **{PROJ: "obs", SVC: "grafana"})))
 
 
+class FakeDocker:
+    """Networks by id, containers by project; records deletes."""
+
+    def __init__(self, networks, projects):
+        self.networks, self.projects, self.deleted = networks, projects, []
+
+    def get(self, path, **q):
+        nid = path.rsplit("/", 1)[1]
+        if nid not in self.networks:
+            raise obslib.DockerError(404, "no such network")
+        return self.networks[nid]
+
+    def containers(self, all=False, filters=None):
+        project = filters["label"][0].split("=", 1)[1]
+        return self.projects.get(project, [])
+
+    def request(self, method, path, **kw):
+        self.deleted.append((method, path))
+
+
+class Cleanup(unittest.TestCase):
+    def test_only_empty_networks_of_projects_that_are_down_go(self):
+        d = FakeDocker({"busy": {"Name": "a_net", "Containers": {"x": {}}},
+                        "stopped": {"Name": "b_net", "Containers": {}},
+                        "down": {"Name": "c_net", "Containers": {}}},
+                       {"b": [{"State": "exited"}]})
+        nj = netjoin.NetJoin(d, obslib.Metrics())
+        nj.left = {"busy": "a", "stopped": "b", "down": "c", "gone": "d"}
+        nj.cleanup()
+        self.assertEqual(d.deleted, [("DELETE", "/networks/down")])
+        self.assertEqual(sorted(nj.left), ["busy", "stopped"])
+
+
 class Dashboards(unittest.TestCase):
     def setUp(self):
         self.platform = load_platform()

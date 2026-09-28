@@ -72,8 +72,11 @@ is a stock image, and the JAM collectors are standard-library Python on `python:
   and ships labelled containers' logs to Loki.
 - **netjoin** keeps Alloy, the JIP-2 exporter and the JIP-3 receiver on every Docker
   network that has a labelled container. They join when the network's first labelled
-  container is created, before its nodes start, and leave when the last one stops (before
-  `docker compose down` removes the network). On a network with a configured subnet each
+  container is created, before its nodes start, and leave when the last one stops.
+  `docker compose down` removes the network right after its containers, usually before
+  the collectors have left: Compose then prints "Resource is still in use" (and exits 0),
+  and netjoin removes the empty network a moment later, once no container of that
+  project is left. On a network with a configured subnet each
   takes the highest free address, never a dynamic one, so it cannot take a static address
   a node has not claimed yet. Each gets an alias there: `obs-alloy`, `obs-jip2`,
   `obs-jip3`.

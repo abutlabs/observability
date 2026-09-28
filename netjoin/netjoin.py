@@ -11,6 +11,8 @@ connections, so those three must share a network with them. netjoin watches Dock
   * leaves a network as soon as no such container is left on it (on the container's
     `die`, before `docker compose down` removes the network, which it could not do
     while a collector is still attached);
+  * finishes a `docker compose down` that lost that race: a compose network the
+    collectors left is removed once it is empty and its project has no container left;
   * never touches the obs project's own networks.
 
 Joining happens at the net's first container `create`, before the nodes start, so a
@@ -103,6 +105,7 @@ class NetJoin:
         self.m_errors = metrics.counter("obs_netjoin_errors_total", "Docker API calls that failed.")
         self.m_last = metrics.gauge("obs_netjoin_last_reconcile_timestamp_seconds",
                                     "When netjoin last compared the networks with the containers.")
+        self.left = {}                  # network id -> compose project, for cleanup()
 
     def joiners(self):
         """{service: container} for this project's collectors that exist."""
@@ -153,6 +156,10 @@ class NetJoin:
                 join, leave = plan(want, obslib.container_networks(c), own)
                 for n in leave:
                     try:
+                        info = self.docker.get("/networks/" + n)
+                        project = (info.get("Labels") or {}).get(obslib.COMPOSE_PROJECT)
+                        if project:
+                            self.left[info["Id"]] = project
                         self.docker.post("/networks/%s/disconnect" % n, {"Container": c["Id"], "Force": True})
                         self.m_actions.labels(service=svc, action="leave").inc()
                         log("%s left %s" % (svc, n))
@@ -170,10 +177,36 @@ class NetJoin:
                         log("%s cannot join %s: %s" % (svc, n, e))
                 self.m_networks.labels(service=svc).set(len((set(obslib.container_networks(c)) | set(join))
                                                             - set(leave) - own))
+            self.cleanup()
             self.m_last.set(time.time())
         except (OSError, obslib.DockerError) as e:
             self.m_errors.inc()
             log("reconcile failed: %s" % e)
+
+    def cleanup(self):
+        """Remove the compose networks the collectors left that compose could not remove
+        (it tried while a collector was still attached): empty, and no container of their
+        project left in any state. Anything else stays."""
+        for nid, project in list(self.left.items()):
+            try:
+                info = self.docker.get("/networks/" + nid)
+            except obslib.DockerError as e:
+                if e.status == 404:                  # compose removed it: done
+                    del self.left[nid]
+                    continue
+                raise
+            if info.get("Containers"):
+                continue
+            if self.docker.containers(all=True, filters={"label": ["%s=%s" % (obslib.COMPOSE_PROJECT, project)]}):
+                continue                             # the project is still there (stopped, not down)
+            try:
+                self.docker.request("DELETE", "/networks/" + nid)
+                self.m_actions.labels(service="netjoin", action="remove").inc()
+                log("removed %s, left behind by the down of %s" % (info.get("Name"), project))
+            except obslib.DockerError as e:
+                if e.status != 404:
+                    raise
+            del self.left[nid]
 
 
 def relevant(ev):
@@ -212,8 +245,11 @@ def main():
     next_sync = time.time() + RESYNC_SECS
     while True:
         try:
-            q.get(timeout=max(0.1, next_sync - time.time()))
-            time.sleep(COALESCE_SECS)             # a compose up is a burst of events
+            ev = q.get(timeout=max(0.1, next_sync - time.time()))
+            # a stop is urgent (leave before compose removes the network); a compose up
+            # is a burst of events, taken together
+            if not ev or ev.get("Action") != "die":
+                time.sleep(COALESCE_SECS)
             while not q.empty():
                 q.get_nowait()
         except queue.Empty:

@@ -209,9 +209,9 @@
      "type": "loki",
      "uid": "loki"
     },
-    "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=~\"run_begin|run_end|start|restart|die\" | during_run!=\"true\"",
+    "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=~\"run_begin|run_end|start|restart|die\" | during_run!=\"true\" or reason!~\"killed|oom|crashed\"",
     "target": {
-     "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=~\"run_begin|run_end|start|restart|die\" | during_run!=\"true\"",
+     "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=~\"run_begin|run_end|start|restart|die\" | during_run!=\"true\" or reason!~\"killed|oom|crashed\"",
      "refId": "Anno",
      "queryType": "range"
     },
@@ -229,9 +229,9 @@
      "type": "loki",
      "uid": "loki"
     },
-    "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=\"die\" | during_run=\"true\"",
+    "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=\"die\" | during_run=\"true\" | reason=~\"killed|oom|crashed\"",
     "target": {
-     "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=\"die\" | during_run=\"true\"",
+     "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=\"die\" | during_run=\"true\" | reason=~\"killed|oom|crashed\"",
      "refId": "Anno",
      "queryType": "range"
     },
@@ -271,7 +271,7 @@
    "transparent": true,
    "options": {
     "mode": "markdown",
-    "content": "**What happened to this node?** Its state and, if it stopped, why (the container's lifecycle: teardown, killed, crashed with an exit code, OOM-killed, or running but silent), its last words, then its chain, work-packages, resources and every log line. Standard `jam_*` series first; for a lasair node, lasair's own names where a `jam_*` one is missing. Figures are at the range's end or, for a finished run, at its end; **whole run** (top right) shows the run start to end. [All nodes](/d/obs-overview?orgId=1&var-net=${net}&var-run_id=${run_id}&${__url_time_range}) \u00b7 [Logs](/d/obs-logs?orgId=1&var-net=${net}&var-run_id=${run_id}&var-node=${node}&${__url_time_range})"
+    "content": "**What happened to this node?** Its state and, if it stopped, why (the container's lifecycle: teardown, killed, crashed with an exit code, OOM-killed, or running but stalled), its last words, then its chain, work-packages, resources and every log line. Standard `jam_*` series first; for a lasair node, lasair's own names where a `jam_*` one is missing. Figures are at the range's end or, for a finished run, at its end; **whole run** (top right) shows the run start to end. [All nodes](/d/obs-overview?orgId=1&var-net=${net}&var-run_id=${run_id}&${__url_time_range}) \u00b7 [Logs](/d/obs-logs?orgId=1&var-net=${net}&var-run_id=${run_id}&var-node=${node}&${__url_time_range})"
    },
    "id": 1,
    "gridPos": {
@@ -284,14 +284,14 @@
   {
    "type": "stat",
    "title": "State",
-   "description": "reporting, stopped during the run (over 60 s before the rest of the net), or net silent (every node stopped).",
+   "description": "advancing, stopped during the run (its best slot stopped over 60 s before the rest of the net's), or net stalled (no node advancing).",
    "datasource": {
     "type": "prometheus",
     "uid": "prometheus"
    },
    "targets": [
     {
-     "expr": "(max by (node, client) (max_over_time(timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\",node=\"$node\"})[$__range:15s] @ $at)) >= bool on() group_left() (max(max by (node, client) (max_over_time(timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"})[$__range:15s] @ $at))) - 60)) * on() group_left() (1 + (max(max by (node, client) (max_over_time(timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"})[$__range:15s] @ $at))) < bool ($at - 60)))",
+     "expr": "(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[1m]) > 0)[$__range:15s] @ $at)) >= bool on() group_left() (max(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at))) - 60)) * on() group_left() (1 + (max(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at))) < bool ($at - 60)))",
      "refId": "A",
      "range": false,
      "instant": true
@@ -314,18 +314,27 @@
          "index": 0
         },
         "1": {
-         "text": "reporting",
+         "text": "advancing",
          "color": "green",
          "index": 1
         },
         "2": {
-         "text": "net silent",
+         "text": "net stalled",
          "color": "#8e8e8e",
          "index": 2
         }
        }
       }
-     ]
+     ],
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "#8e8e8e",
+        "value": null
+       }
+      ]
+     }
     },
     "overrides": []
    },
@@ -353,32 +362,32 @@
   {
    "type": "stat",
    "title": "Why it stopped",
-   "description": "The container's last stop in the range, from Docker (the lifecycle service): teardown (the net was shut down), stopped, killed, oom, crashed or exited, and when. Red if its run was still active. Orange: the container runs but the node has sent nothing for a minute.",
+   "description": "The container's last stop in the range, from Docker (the lifecycle service): teardown (the net was shut down), stopped, killed, oom, crashed or exited, and when. Red: killed, OOM-killed or crashed while its run was active. Orange: the container runs but its best slot has not moved for over a minute (hung, or cut off).",
    "datasource": {
     "type": "prometheus",
     "uid": "prometheus"
    },
    "targets": [
     {
-     "expr": "max by (reason) (last_over_time(obs_container_stopped_timestamp_seconds{net=\"$net\",run_id=\"$run_id\",node=\"$node\",during_run=\"true\"}[$__range])) * 1000",
+     "expr": "max by (reason) (last_over_time(obs_container_stopped_timestamp_seconds{net=\"$net\",run_id=\"$run_id\",node=\"$node\",during_run=\"true\",reason=~\"killed|oom|crashed\"}[$__range])) * 1000",
      "refId": "A",
      "range": false,
      "instant": true,
      "legendFormat": "{{reason}}"
     },
     {
-     "expr": "max by (reason) (last_over_time(obs_container_stopped_timestamp_seconds{net=\"$net\",run_id=\"$run_id\",node=\"$node\",during_run=\"false\"}[$__range])) * 1000",
+     "expr": "max by (reason) (last_over_time(obs_container_stopped_timestamp_seconds{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[$__range])) * 1000 unless max by (reason) (last_over_time(obs_container_stopped_timestamp_seconds{net=\"$net\",run_id=\"$run_id\",node=\"$node\",during_run=\"true\",reason=~\"killed|oom|crashed\"}[$__range]))",
      "refId": "B",
      "range": false,
      "instant": true,
      "legendFormat": "{{reason}}"
     },
     {
-     "expr": "max(max by (node, client) (max_over_time(timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\",node=\"$node\"})[$__range:15s] @ $at))) * 1000 and on() (max(last_over_time(obs_container_running{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[1m] @ $at)) == 1) unless on() max(last_over_time(jam_best_slot{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[1m] @ $at))",
+     "expr": "max(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[1m]) > 0)[$__range:15s] @ $at))) * 1000 and on() (max(last_over_time(obs_container_running{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[1m] @ $at)) == 1) and on() (max(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[1m]) > 0)[$__range:15s] @ $at))) < ($at - 60))",
      "refId": "C",
      "range": false,
      "instant": true,
-     "legendFormat": "running, silent since"
+     "legendFormat": "running, stalled since"
     }
    ],
    "fieldConfig": {
@@ -558,15 +567,15 @@
   },
   {
    "type": "stat",
-   "title": "Last seen",
-   "description": "Its last best-slot sample in the range (up to the run's end).",
+   "title": "Last advanced",
+   "description": "When its best slot last moved in the range, up to the run's end (to within a minute).",
    "datasource": {
     "type": "prometheus",
     "uid": "prometheus"
    },
    "targets": [
     {
-     "expr": "max(max by (node, client) (max_over_time(timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\",node=\"$node\"})[$__range:15s] @ $at))) * 1000",
+     "expr": "max(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\",node=\"$node\"}[1m]) > 0)[$__range:15s] @ $at))) * 1000",
      "refId": "A",
      "range": false,
      "instant": true
@@ -642,7 +651,16 @@
         }
        }
       }
-     ]
+     ],
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "#8e8e8e",
+        "value": null
+       }
+      ]
+     }
     },
     "overrides": []
    },
@@ -719,14 +737,14 @@
   {
    "type": "logs",
    "title": "Lifecycle",
-   "description": "The container's Docker events (create, start, kill, oom, stop, die with its exit code and why, destroy), newest first.",
+   "description": "The container's Docker events (create, start, kill, oom, stop, die with its exit code and why, destroy), newest first. Expand a line for its fields (event, reason, exit_code, signal, during_run).",
    "datasource": {
     "type": "loki",
     "uid": "loki"
    },
    "targets": [
     {
-     "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\", node=\"$node\"}",
+     "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\", node=\"$node\"} | json | line_format `{{.msg}}`",
      "refId": "A",
      "queryType": "range"
     }

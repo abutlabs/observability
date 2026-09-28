@@ -191,9 +191,9 @@
      "type": "loki",
      "uid": "loki"
     },
-    "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=~\"run_begin|run_end|start|restart|die\" | during_run!=\"true\"",
+    "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=~\"run_begin|run_end|start|restart|die\" | during_run!=\"true\" or reason!~\"killed|oom|crashed\"",
     "target": {
-     "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=~\"run_begin|run_end|start|restart|die\" | during_run!=\"true\"",
+     "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=~\"run_begin|run_end|start|restart|die\" | during_run!=\"true\" or reason!~\"killed|oom|crashed\"",
      "refId": "Anno",
      "queryType": "range"
     },
@@ -211,9 +211,9 @@
      "type": "loki",
      "uid": "loki"
     },
-    "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=\"die\" | during_run=\"true\"",
+    "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=\"die\" | during_run=\"true\" | reason=~\"killed|oom|crashed\"",
     "target": {
-     "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=\"die\" | during_run=\"true\"",
+     "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=\"die\" | during_run=\"true\" | reason=~\"killed|oom|crashed\"",
      "refId": "Anno",
      "queryType": "range"
     },
@@ -266,14 +266,14 @@
   {
    "type": "stat",
    "title": "Nodes stopped during the run \u00b7 PASS = 0",
-   "description": "Nodes that stopped reporting more than 60 s before the rest of the net did, within the range (up to the run's end). A net shut down at the end of its run stops all together and is not counted. Node detail (click a node) says why.",
+   "description": "Nodes whose best slot stopped advancing more than 60 s before the rest of the net's did, within the range (up to the run's end). A net shut down at the end of its run stops all together and is not counted. Node detail (click a node) says why.",
    "datasource": {
     "type": "prometheus",
     "uid": "prometheus"
    },
    "targets": [
     {
-     "expr": "count(max by (node, client) (max_over_time(timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"})[$__range:15s] @ $at)) < on() group_left() (max(max by (node, client) (max_over_time(timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"})[$__range:15s] @ $at))) - 60)) or (max(max by (node, client) (max_over_time(timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"})[$__range:15s] @ $at))) * 0)",
+     "expr": "count(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at)) < on() group_left() (max(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at))) - 60)) or (max(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at))) * 0)",
      "refId": "A",
      "range": false,
      "instant": true

@@ -31,6 +31,8 @@ PROM = {"type": "prometheus", "uid": "prometheus"}
 LOKI = {"type": "loki", "uid": "loki"}
 SEL = 'net="$net",run_id="$run_id"'
 GREEN, RED, BLUE, GREY, PURPLE = "green", "red", "#5794F2", "text", "#B877D9"
+ABNORMAL = "killed|oom|crashed"   # lifecycle reasons that are a failure while the run is on;
+#                                  a graceful stop or a clean exit 0 (an init container) is not
 STOP_GRACE = 60           # a node that stopped this long before the rest of its net stopped early
 NODE_DETAIL = "obs-node"
 
@@ -43,14 +45,17 @@ def at_end(expr):
     return "last_over_time((%s)[$__range:$__interval] @ $at)" % expr
 
 
-def last_seen(metric="jam_best_slot", sel=SEL, by="node, client"):
-    """Per node, the unix time of its last sample in the range, up to $at."""
-    return "max by (%s) (max_over_time(timestamp(%s{%s})[$__range:15s] @ $at))" % (by, metric, sel)
+def last_advanced(metric="jam_best_slot", sel=SEL, by="node, client"):
+    """Per node, the last time (unix s, to within a minute) in the range, up to $at, that its
+    best slot moved. Progress, not the arrival of samples: a collector may keep exporting a
+    gone node's last value (the JIP-3 receiver keeps a disconnected node's series)."""
+    return ("max by (%s) (max_over_time((timestamp(%s{%s}) and changes(%s{%s}[1m]) > 0)[$__range:15s] @ $at))"
+            % (by, metric, sel, metric, sel))
 
 
 def stopped_early(ls):
-    """The nodes (of last_seen() `ls`) that stopped more than STOP_GRACE seconds before the
-    rest of the net: while the run went on. A net shut down at the end of its run stops
+    """The nodes (of last_advanced() `ls`) that stopped more than STOP_GRACE seconds before
+    the rest of the net: while the run went on. A net shut down at the end of its run stops
     all together, whatever order the run's end and the teardown came in."""
     return "%s < on() group_left() (max(%s) - %d)" % (ls, ls, STOP_GRACE)
 
@@ -289,8 +294,8 @@ def annotations(lifecycle=True):
 
 def lifecycle_annotations():
     """The run's and its containers' lives, from the lifecycle service's Loki lines: run
-    begin and end, starts, restarts and stops (purple), and red for a node that stopped
-    while its run was active (killed, crashed, OOM-killed, stopped by hand)."""
+    begin and end, starts, restarts and stops (purple), and red for a container killed,
+    OOM-killed or crashed while its run was active."""
     base = '{source="lifecycle", net="$net", run_id="$run_id"} | json'
 
     def ann(name, expr, color):
@@ -298,9 +303,10 @@ def lifecycle_annotations():
                 "expr": expr, "target": {"expr": expr, "refId": "Anno", "queryType": "range"},
                 "instant": False, "titleFormat": "{{node}} {{event}}", "textFormat": "{{msg}}",
                 "tagKeys": "node,event,reason"}
-    return [ann("lifecycle", base + ' | event=~"run_begin|run_end|start|restart|die" | during_run!="true"',
-                PURPLE),
-            ann("node stopped during the run", base + ' | event="die" | during_run="true"', RED)]
+    return [ann("lifecycle", base + ' | event=~"run_begin|run_end|start|restart|die" '
+                '| during_run!="true" or reason!~"%s"' % ABNORMAL, PURPLE),
+            ann("node stopped during the run", base + ' | event="die" | during_run="true" | reason=~"%s"'
+                % ABNORMAL, RED)]
 
 
 def dashboard(uid, title, layout, tags=("obs",), variables_=None, refresh="10s",

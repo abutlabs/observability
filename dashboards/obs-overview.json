@@ -191,9 +191,9 @@
      "type": "loki",
      "uid": "loki"
     },
-    "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=~\"run_begin|run_end|start|restart|die\" | during_run!=\"true\"",
+    "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=~\"run_begin|run_end|start|restart|die\" | during_run!=\"true\" or reason!~\"killed|oom|crashed\"",
     "target": {
-     "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=~\"run_begin|run_end|start|restart|die\" | during_run!=\"true\"",
+     "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=~\"run_begin|run_end|start|restart|die\" | during_run!=\"true\" or reason!~\"killed|oom|crashed\"",
      "refId": "Anno",
      "queryType": "range"
     },
@@ -211,9 +211,9 @@
      "type": "loki",
      "uid": "loki"
     },
-    "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=\"die\" | during_run=\"true\"",
+    "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=\"die\" | during_run=\"true\" | reason=~\"killed|oom|crashed\"",
     "target": {
-     "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=\"die\" | during_run=\"true\"",
+     "expr": "{source=\"lifecycle\", net=\"$net\", run_id=\"$run_id\"} | json | event=\"die\" | during_run=\"true\" | reason=~\"killed|oom|crashed\"",
      "refId": "Anno",
      "queryType": "range"
     },
@@ -266,7 +266,7 @@
   {
    "type": "stat",
    "title": "Run",
-   "description": "The run's state from its record (obs begin, obs end): active, ended normally (grey) or active with every node silent for over 60 s (red). A net run without the obs CLI has no record. Click for the whole run.",
+   "description": "The run's state from its record (obs begin, obs end): active, ended normally (grey) or active with no node advancing for over 60 s (red). A net run without the obs CLI has no record. Click for the whole run.",
    "datasource": {
     "type": "prometheus",
     "uid": "prometheus"
@@ -279,13 +279,13 @@
      "instant": true
     },
     {
-     "expr": "max(obs_run_start_timestamp_seconds{net=\"$net\",run_id=\"$run_id\"}) * 1000 unless on() max(obs_run_end_timestamp_seconds{net=\"$net\",run_id=\"$run_id\"}) unless on() (max(max by (node, client) (max_over_time(timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"})[$__range:15s] @ $at))) < ($at - 60))",
+     "expr": "max(obs_run_start_timestamp_seconds{net=\"$net\",run_id=\"$run_id\"}) * 1000 unless on() max(obs_run_end_timestamp_seconds{net=\"$net\",run_id=\"$run_id\"}) unless on() (max(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at))) < ($at - 60))",
      "refId": "B",
      "range": false,
      "instant": true
     },
     {
-     "expr": "(max(max by (node, client) (max_over_time(timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"})[$__range:15s] @ $at))) < ($at - 60)) * 1000 unless on() max(obs_run_end_timestamp_seconds{net=\"$net\",run_id=\"$run_id\"}) and on() max(obs_run_start_timestamp_seconds{net=\"$net\",run_id=\"$run_id\"})",
+     "expr": "(max(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at))) < ($at - 60)) * 1000 unless on() max(obs_run_end_timestamp_seconds{net=\"$net\",run_id=\"$run_id\"}) and on() max(obs_run_start_timestamp_seconds{net=\"$net\",run_id=\"$run_id\"})",
      "refId": "C",
      "range": false,
      "instant": true
@@ -353,7 +353,7 @@
       "properties": [
        {
         "id": "unit",
-        "value": "time:[net silent since ]HH:mm:ss[ \u2014 run not ended]"
+        "value": "time:[net stalled since ]HH:mm:ss[ \u2014 run not ended]"
        },
        {
         "id": "color",
@@ -389,15 +389,15 @@
   },
   {
    "type": "stat",
-   "title": "Nodes reporting",
-   "description": "Nodes with a best block from any path, at the range's end or, for a finished run, at its end.",
+   "title": "Nodes advancing",
+   "description": "Nodes whose best slot moved within 60 s of the net's newest move, at the range's end or, for a finished run, at its end.",
    "datasource": {
     "type": "prometheus",
     "uid": "prometheus"
    },
    "targets": [
     {
-     "expr": "last_over_time((count(max by (node, client) (jam_best_slot{net=\"$net\",run_id=\"$run_id\"})))[$__range:$__interval] @ $at)",
+     "expr": "count(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at)) >= on() group_left() (max(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at))) - 60))",
      "refId": "A",
      "range": false,
      "instant": true
@@ -642,14 +642,14 @@
   {
    "type": "stat",
    "title": "Nodes stopped during the run \u00b7 PASS = 0",
-   "description": "Nodes that stopped reporting more than 60 s before the rest of the net did, within the range (up to the run's end). A net shut down at the end of its run stops all together and is not counted.",
+   "description": "Nodes whose best slot stopped advancing more than 60 s before the rest of the net's did, within the range (up to the run's end). A net shut down at the end of its run stops all together and is not counted.",
    "datasource": {
     "type": "prometheus",
     "uid": "prometheus"
    },
    "targets": [
     {
-     "expr": "count(max by (node, client) (max_over_time(timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"})[$__range:15s] @ $at)) < on() group_left() (max(max by (node, client) (max_over_time(timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"})[$__range:15s] @ $at))) - 60)) or (max(max by (node, client) (max_over_time(timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"})[$__range:15s] @ $at))) * 0)",
+     "expr": "count(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at)) < on() group_left() (max(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at))) - 60)) or (max(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at))) * 0)",
      "refId": "A",
      "range": false,
      "instant": true
@@ -702,7 +702,7 @@
   {
    "type": "table",
    "title": "Nodes",
-   "description": "One row per node, at the range's end or, for a finished run, at its end. state: reporting, stopped during the run (it stopped over 60 s before the rest of the net), or net silent. stopped and why: the container's last stop in the range (the lifecycle service). Click a node for Node detail, or for its last minutes of logs.",
+   "description": "One row per node, at the range's end or, for a finished run, at its end. state: advancing, stopped during the run (its best slot stopped over 60 s before the rest of the net's), or net stalled. last advanced: when its best slot last moved (to within a minute). stopped and why: the container's last stop in the range (the lifecycle service). Click a node for Node detail, or for its last minutes of logs.",
    "datasource": {
     "type": "prometheus",
     "uid": "prometheus"
@@ -751,42 +751,42 @@
      "range": false
     },
     {
-     "expr": "(max by (node, client) (max_over_time(timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"})[$__range:15s] @ $at)) >= bool on() group_left() (max(max by (node, client) (max_over_time(timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"})[$__range:15s] @ $at))) - 60)) * on() group_left() (1 + (max(max by (node, client) (max_over_time(timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"})[$__range:15s] @ $at))) < bool ($at - 60)))",
+     "expr": "(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at)) >= bool on() group_left() (max(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at))) - 60)) * on() group_left() (1 + (max(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at))) < bool ($at - 60)))",
      "refId": "G",
      "format": "table",
      "instant": true,
      "range": false
     },
     {
-     "expr": "max by (node, client) (max_over_time(timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"})[$__range:15s] @ $at)) * 1000",
+     "expr": "max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at)) * 1000",
      "refId": "H",
      "format": "table",
      "instant": true,
      "range": false
     },
     {
-     "expr": "max by (node, client, reason) (last_over_time(obs_container_stopped_timestamp_seconds{net=\"$net\",run_id=\"$run_id\"}[$__range] @ $at)) * 1000",
+     "expr": "max by (node, client, reason) (last_over_time(obs_container_stopped_timestamp_seconds{net=\"$net\",run_id=\"$run_id\"}[$__range] @ $at)) * 1000 and on(node) group by (node) (last_over_time(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[$__range] @ $at))",
      "refId": "I",
      "format": "table",
      "instant": true,
      "range": false
     },
     {
-     "expr": "max by (node, client) (last_over_time(obs_container_last_exit_code{net=\"$net\",run_id=\"$run_id\"}[$__range] @ $at))",
+     "expr": "max by (node, client) (last_over_time(obs_container_last_exit_code{net=\"$net\",run_id=\"$run_id\"}[$__range] @ $at)) and on(node) group by (node) (last_over_time(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[$__range] @ $at))",
      "refId": "J",
      "format": "table",
      "instant": true,
      "range": false
     },
     {
-     "expr": "(max by (node, client) (max_over_time(timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"})[$__range:15s] @ $at)) - 300) * 1000",
+     "expr": "(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at)) - 300) * 1000",
      "refId": "K",
      "format": "table",
      "instant": true,
      "range": false
     },
     {
-     "expr": "(max by (node, client) (max_over_time(timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"})[$__range:15s] @ $at)) + 60) * 1000",
+     "expr": "(max by (node, client) (max_over_time((timestamp(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}) and changes(jam_best_slot{net=\"$net\",run_id=\"$run_id\"}[1m]) > 0)[$__range:15s] @ $at)) + 60) * 1000",
      "refId": "L",
      "format": "table",
      "instant": true,
@@ -863,12 +863,12 @@
             "index": 0
            },
            "1": {
-            "text": "reporting",
+            "text": "advancing",
             "color": "green",
             "index": 1
            },
            "2": {
-            "text": "net silent",
+            "text": "net stalled",
             "color": "#8e8e8e",
             "index": 2
            }
@@ -887,7 +887,7 @@
      {
       "matcher": {
        "id": "byRegexp",
-       "options": "^(last seen|stopped)$"
+       "options": "^(last advanced|stopped)$"
       },
       "properties": [
        {
@@ -949,7 +949,7 @@
        "Value #C": "finality lag",
        "Value #D": "peers",
        "Value #F": "paths",
-       "Value #H": "last seen",
+       "Value #H": "last advanced",
        "Value #I": "stopped",
        "reason": "why",
        "Value #J": "exit code",

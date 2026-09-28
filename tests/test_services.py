@@ -172,7 +172,7 @@ class Dashboards(unittest.TestCase):
     FUNCS = {"by", "on", "or", "and", "unless", "bool", "without", "vector", "max", "min", "sum",
              "count", "rate", "increase", "time", "group", "max_over_time", "min_over_time",
              "last_over_time", "histogram_quantile", "label_replace", "deriv", "abs", "offset",
-             "timestamp", "clamp_max", "query_result"}
+             "timestamp", "clamp_max", "query_result", "changes"}
     # client-specific names Node detail may read where no jam_* one exists
     CLIENT_SPECIFIC = {"obs-node.json": re.compile(r"^lasair_")}
     # panels that list the net's runs, so do not filter by one

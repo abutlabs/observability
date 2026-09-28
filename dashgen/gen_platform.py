@@ -23,8 +23,8 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from obsdash import (GREEN, GREY, LOKI, PASS_FAIL, PROM, RED, SEL, STOP_GRACE, Layout,  # noqa: E402
-                     dashboard, last_seen, logs, per_min, right_axis, run_variables, stat,
+from obsdash import (ABNORMAL, GREEN, GREY, LOKI, PASS_FAIL, PROM, RED, SEL, STOP_GRACE, Layout,  # noqa: E402
+                     dashboard, last_advanced, logs, per_min, right_axis, run_variables, stat,
                      stopped_early, table, text, ts, variables, write_all)
 
 OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "dashboards")
@@ -43,41 +43,44 @@ FINAL = node("jam_finalized_slot")
 # finality lag, once a node has finalized past genesis (before, the "lag" is the slot)
 FIN_LAG = "%s - (%s > 0)" % (BEST, FINAL)
 SOURCES = ('label_replace(jam_best_slot{%s}, "source", "metrics", "source", "")' % SEL)
-LS = last_seen()          # per node: its last best-slot sample in the range, up to $at
+LS = last_advanced()      # per node: when its best slot last moved in the range, up to $at
 DIED = "obs_container_stopped_timestamp_seconds"    # the lifecycle service's stop record
+# the run's JAM nodes (not its DEX, load generator or init containers)
+JAM_NODES = "group by (node) (last_over_time(jam_best_slot{%s}[$__range] @ $at))" % SEL
 
-# a node's state at $at: 0 stopped while the rest of the net went on, 1 reporting (at the
-# run's end, for a finished run), 2 the whole net had gone silent
+# a node's state at $at: 0 stopped while the rest of the net went on, 1 advancing (at the
+# run's end, for a finished run), 2 the whole net had stopped advancing
 STATE = ("(%s >= bool on() group_left() (max(%s) - %d)) * on() group_left() (1 + (max(%s) < bool ($at - %d)))"
          % (LS, LS, STOP_GRACE, LS, STOP_GRACE))
+NEUTRAL = {"mode": "absolute", "steps": [{"color": "#8e8e8e", "value": None}]}
 STATE_MAP = [{"type": "value", "options": {
     "0": {"text": "stopped during the run", "color": RED, "index": 0},
-    "1": {"text": "reporting", "color": GREEN, "index": 1},
-    "2": {"text": "net silent", "color": "#8e8e8e", "index": 2}}}]
+    "1": {"text": "advancing", "color": GREEN, "index": 1},
+    "2": {"text": "net stalled", "color": "#8e8e8e", "index": 2}}}]
 
 
 def stopped_tile(desc_extra=""):
     return stat("Nodes stopped during the run · PASS = 0",
                 "count(%s) or (max(%s) * 0)" % (stopped_early(LS), LS),
-                "Nodes that stopped reporting more than %d s before the rest of the net did, "
-                "within the range (up to the run's end). A net shut down at the end of its run "
-                "stops all together and is not counted.%s" % (STOP_GRACE, desc_extra),
+                "Nodes whose best slot stopped advancing more than %d s before the rest of the net's "
+                "did, within the range (up to the run's end). A net shut down at the end of its "
+                "run stops all together and is not counted.%s" % (STOP_GRACE, desc_extra),
                 "==", 0, instant=True)
 
 
 def run_tile():
-    """The run: active, ended (grey, with its end time), or its net gone silent while the
+    """The run: active, ended (grey, with its end time), or its net stalled while the
     run is active (red). Evaluated at the range's end: what the record said then."""
     end = "max(obs_run_end_timestamp_seconds{%s})" % SEL
-    silent = "(max(%s) < ($at - %d))" % (LS, STOP_GRACE)
+    stalled = "(max(%s) < ($at - %d))" % (LS, STOP_GRACE)
     targets = [
         ("A", "%s * 1000" % end, "time:[run ended ]HH:mm:ss[ — net shut down]", GREY),
-        ("B", "max(obs_run_start_timestamp_seconds{%s}) * 1000 unless on() %s unless on() %s" % (SEL, end, silent),
+        ("B", "max(obs_run_start_timestamp_seconds{%s}) * 1000 unless on() %s unless on() %s" % (SEL, end, stalled),
          "time:[run active since ]HH:mm:ss", "#5794F2"),
-        ("C", "%s * 1000 unless on() %s and on() max(obs_run_start_timestamp_seconds{%s})" % (silent, end, SEL),
-         "time:[net silent since ]HH:mm:ss[ — run not ended]", RED)]
+        ("C", "%s * 1000 unless on() %s and on() max(obs_run_start_timestamp_seconds{%s})" % (stalled, end, SEL),
+         "time:[net stalled since ]HH:mm:ss[ — run not ended]", RED)]
     p = stat("Run", targets[0][1], "The run's state from its record (obs begin, obs end): active, "
-             "ended normally (grey) or active with every node silent for over %d s (red). A net run "
+             "ended normally (grey) or active with no node advancing for over %d s (red). A net run "
              "without the obs CLI has no record. Click for the whole run." % STOP_GRACE, instant=True)
     p["targets"] = [{"expr": e, "refId": r, "range": False, "instant": True} for r, e, _, _ in targets]
     p["fieldConfig"]["defaults"]["noValue"] = "no run record"
@@ -102,8 +105,9 @@ def overview():
         "polling its RPC, else from the JIP-3 events it pushes; the *paths* column says how "
         "many of those describe it."), 24, 3)
     L.add(run_tile(), 6, 4)
-    L.add(stat("Nodes reporting", "count(%s)" % BEST, "Nodes with a best block from any path, at "
-               "the range's end or, for a finished run, at its end."), 3, 4)
+    L.add(stat("Nodes advancing", "count(%s >= on() group_left() (max(%s) - %d))" % (LS, LS, STOP_GRACE),
+               "Nodes whose best slot moved within %d s of the net's newest move, at the range's "
+               "end or, for a finished run, at its end." % STOP_GRACE, instant=True), 3, 4)
     L.add(stat("Clients", "count(count by (client) (%s))" % BEST,
                "Distinct client implementations among them."), 3, 4)
     L.add(stat("Newest best slot", "max(%s)" % BEST, "The highest best slot any node reports."), 3, 4)
@@ -120,12 +124,15 @@ def overview():
         ('max by (node, client, client_version, gp_version) (jam_node_info{%s,client_version!=""})' % SEL, "E"),
         ("count by (node, client) (group by (node, client, source) (%s))" % SOURCES, "F"),
         (STATE, "G"), ("%s * 1000" % LS, "H"),
-        ("max by (node, client, reason) (last_over_time(%s{%s}[$__range] @ $at)) * 1000" % (DIED, SEL), "I"),
-        ("max by (node, client) (last_over_time(obs_container_last_exit_code{%s}[$__range] @ $at))" % SEL, "J"),
+        ("max by (node, client, reason) (last_over_time(%s{%s}[$__range] @ $at)) * 1000 and on(node) %s"
+         % (DIED, SEL, JAM_NODES), "I"),
+        ("max by (node, client) (last_over_time(obs_container_last_exit_code{%s}[$__range] @ $at)) and on(node) %s"
+         % (SEL, JAM_NODES), "J"),
         ("(%s - 300) * 1000" % LS, "K"), ("(%s + 60) * 1000" % LS, "L")],
         "One row per node, at the range's end or, for a finished run, at its end. state: "
-        "reporting, stopped during the run (it stopped over %d s before the rest of the net), or "
-        "net silent. stopped and why: the container's last stop in the range (the lifecycle "
+        "advancing, stopped during the run (its best slot stopped over %d s before the rest "
+        "of the net's), or net stalled. last advanced: when its best slot last moved (to "
+        "within a minute). stopped and why: the container's last stop in the range (the lifecycle "
         "service). Click a node for Node detail, or for its last minutes of logs." % STOP_GRACE,
         transformations=[
             {"id": "merge", "options": {}},
@@ -138,7 +145,7 @@ def overview():
                 "renameByName": {"client_version": "version", "gp_version": "GP", "Value #G": "state",
                                  "Value #A": "best slot", "Value #B": "finalized slot",
                                  "Value #C": "finality lag", "Value #D": "peers",
-                                 "Value #F": "paths", "Value #H": "last seen", "Value #I": "stopped",
+                                 "Value #F": "paths", "Value #H": "last advanced", "Value #I": "stopped",
                                  "reason": "why", "Value #J": "exit code", "Value #K": "logs_from",
                                  "Value #L": "logs_to"}}}],
         overrides=[{"matcher": {"id": "byName", "options": "finality lag"}, "properties": [
@@ -148,7 +155,7 @@ def overview():
             {"matcher": {"id": "byName", "options": "state"}, "properties": [
                 {"id": "mappings", "value": STATE_MAP},
                 {"id": "custom.cellOptions", "value": {"type": "color-background"}}]},
-            {"matcher": {"id": "byRegexp", "options": "^(last seen|stopped)$"}, "properties": [
+            {"matcher": {"id": "byRegexp", "options": "^(last advanced|stopped)$"}, "properties": [
                 {"id": "unit", "value": "dateTimeAsLocalNoDateIfToday"}]},
             {"matcher": {"id": "byRegexp", "options": "^logs_(from|to)$"}, "properties": [
                 {"id": "custom.hidden", "value": True}]}],
@@ -312,12 +319,12 @@ def node_detail():
                 "hide": 0}
     vs = variables()
     vs = vs[:2] + [node_var] + vs[2:]
-    ls_node = last_seen(sel=NSEL)
+    ls_node = last_advanced(sel=NSEL)
     L = Layout()
     L.add(text(
         "**What happened to this node?** Its state and, if it stopped, why (the container's "
         "lifecycle: teardown, killed, crashed with an exit code, OOM-killed, or running but "
-        "silent), its last words, then its chain, work-packages, resources and every log line. "
+        "stalled), its last words, then its chain, work-packages, resources and every log line. "
         "Standard `jam_*` series first; for a lasair node, lasair's own names where a `jam_*` "
         "one is missing. Figures are at the range's end or, for a finished run, at its end; "
         "**whole run** (top right) shows the run start to end. "
@@ -326,27 +333,29 @@ def node_detail():
         24, 3)
 
     state = stat("State", STATE.replace(LS + " >=", ls_node + " >=", 1),
-                 "reporting, stopped during the run (over %d s before the rest of the net), or net "
-                 "silent (every node stopped)." % STOP_GRACE, instant=True)
+                 "advancing, stopped during the run (its best slot stopped over %d s before the rest "
+                 "of the net's), or net stalled (no node advancing)." % STOP_GRACE, instant=True)
     state["fieldConfig"]["defaults"]["mappings"] = STATE_MAP
     state["fieldConfig"]["defaults"]["color"] = {"mode": "thresholds"}
+    state["fieldConfig"]["defaults"]["thresholds"] = NEUTRAL        # no data: grey
     state["fieldConfig"]["defaults"]["noValue"] = "no chain data"
     L.add(state, 4, 4)
 
     why = stat("Why it stopped", "x", "The container's last stop in the range, from Docker "
                "(the lifecycle service): teardown (the net was shut down), stopped, killed, oom, "
-               "crashed or exited, and when. Red if its run was still active. Orange: the "
-               "container runs but the node has sent nothing for a minute.", instant=True,
+               "crashed or exited, and when. Red: killed, OOM-killed or crashed while its run was "
+               "active. Orange: the "
+               "container runs but its best slot has not moved for over a minute (hung, or cut off).", instant=True,
                legend="{{reason}}", text_mode="value_and_name")
-    why_q = [("A", "max by (reason) (last_over_time(%s{%s,during_run=\"true\"}[$__range])) * 1000" % (DIED, NSEL),
-              RED),
-             ("B", "max by (reason) (last_over_time(%s{%s,during_run=\"false\"}[$__range])) * 1000" % (DIED, NSEL),
+    bad = 'max by (reason) (last_over_time(%s{%s,during_run="true",reason=~"%s"}[$__range]))' % (DIED, NSEL, ABNORMAL)
+    why_q = [("A", "%s * 1000" % bad, RED),
+             ("B", "max by (reason) (last_over_time(%s{%s}[$__range])) * 1000 unless %s" % (DIED, NSEL, bad),
               "#8e8e8e"),
              ("C", "max(%s) * 1000 and on() (max(last_over_time(obs_container_running{%s}[1m] @ $at)) == 1) "
-                   "unless on() max(last_over_time(jam_best_slot{%s}[1m] @ $at))" % (ls_node, NSEL, NSEL),
+                   "and on() (max(%s) < ($at - %d))" % (ls_node, NSEL, ls_node, STOP_GRACE),
               "orange")]
     why["targets"] = [{"expr": e, "refId": r, "range": False, "instant": True,
-                       "legendFormat": "{{reason}}" if r != "C" else "running, silent since"}
+                       "legendFormat": "{{reason}}" if r != "C" else "running, stalled since"}
                       for r, e, _ in why_q]
     why["fieldConfig"]["defaults"].update(unit="dateTimeAsLocalNoDateIfToday", noValue="not stopped")
     why["fieldConfig"]["overrides"] = [
@@ -361,8 +370,9 @@ def node_detail():
     L.add(stat("Restarts", "max(last_over_time(obs_container_restarts_total{%s}[$__range])) or "
                "(max(last_over_time(obs_container_running{%s}[$__range])) * 0)" % (NSEL, NSEL),
                "Starts after it had stopped (restart policy, docker restart).", instant=True), 2, 4)
-    seen = stat("Last seen", "max(%s) * 1000" % ls_node, "Its last best-slot sample in the range "
-                "(up to the run's end).", unit="dateTimeAsLocalNoDateIfToday", instant=True)
+    seen = stat("Last advanced", "max(%s) * 1000" % ls_node, "When its best slot last moved in the "
+                "range, up to the run's end (to within a minute).", unit="dateTimeAsLocalNoDateIfToday",
+                instant=True)
     L.add(seen, 3, 4)
     scr = stat("Scraped", "max(last_over_time(up{%s}[1m] @ $at))" % NSEL,
                "up: 1 while Alloy scrapes its /metrics. Nodes seen only through JIP-2 or JIP-3 "
@@ -370,14 +380,17 @@ def node_detail():
                mappings=[{"type": "value", "options": {"0": {"text": "target down", "color": RED},
                                                        "1": {"text": "up", "color": GREEN}}}])
     scr["fieldConfig"]["defaults"]["color"] = {"mode": "thresholds"}
+    scr["fieldConfig"]["defaults"]["thresholds"] = NEUTRAL
     scr["fieldConfig"]["defaults"]["noValue"] = "no scrape target"
     L.add(scr, 3, 4)
     L.add(stat("Last scrape", "max(max_over_time(timestamp(up{%s})[$__range:15s] @ $at)) * 1000" % NSEL,
                "When Alloy last scraped it.", unit="dateTimeAsLocalNoDateIfToday", instant=True), 4, 4)
 
-    L.add(logs("Lifecycle", '{source="lifecycle", net="$net", run_id="$run_id", node="$node"}',
+    L.add(logs("Lifecycle", '{source="lifecycle", net="$net", run_id="$run_id", node="$node"} | json '
+               '| line_format `{{.msg}}`',
                "The container's Docker events (create, start, kill, oom, stop, die with its exit "
-               "code and why, destroy), newest first."), 12, 9)
+               "code and why, destroy), newest first. Expand a line for its fields (event, "
+               "reason, exit_code, signal, during_run)."), 12, 9)
     L.add(logs("Last words", NLOKI + ', source!="lifecycle"}',
                "Its last 20 lines in the range: if it stopped, what it said just before.",
                max_lines=20), 12, 9)

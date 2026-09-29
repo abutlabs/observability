@@ -217,6 +217,39 @@ class Linking(unittest.TestCase):
         self.assertAlmostEqual(value(m, "jam_block_import_seconds_sum"), 0.25 + 2.0)
         self.assertEqual(value(m, "jip3_dropped_events_total", node="v0"), 3)
 
+    def test_block_stages_of_an_imported_block(self):
+        o = sender.outline(7)
+        imp = self.conn.next_id
+        self.send("importing", {"slot": 7, "outline": o}, 1_000_000)
+        self.send("block_verified", {"importing": imp}, 1_100_000)
+        self.send("block_executed", {"block": imp, "accumulated": []}, 1_300_000)
+        self.send("best_block_changed", {"slot": 7, "hash": o["hash"]}, 1_400_000)
+        self.send("best_block_changed", {"slot": 7, "hash": o["hash"]}, 1_900_000)     # once per stage
+        self.send("finalized_block_changed", {"slot": 7, "hash": o["hash"]}, 9_000_000)
+        self.send("finalized_block_changed", {"slot": 8, "hash": sender.h("unseen")}, 9_500_000)
+        m = self.m()
+        for stage, age in (("verified", .1), ("executed", .3), ("best", .4), ("finalized", 8.0)):
+            self.assertEqual(value(m, "jam_block_stage_seconds_count", stage=stage), 1, stage)
+            self.assertAlmostEqual(value(m, "jam_block_stage_seconds_sum", stage=stage), age, msg=stage)
+        self.assertNotIn(o["hash"], self.conn.blocks)                   # forgotten once final
+
+    def test_block_stages_of_an_authored_block(self):
+        a, o = self.conn.next_id, sender.outline(3)
+        self.send("authoring", {"slot": 3, "parent": sender.h("parent")}, 2_000_000)
+        self.send("authored", {"authoring": a, "outline": o}, 2_500_000)
+        self.send("finalized_block_changed", {"slot": 3, "hash": o["hash"]}, 5_000_000)
+        m = self.m()
+        self.assertAlmostEqual(value(m, "jam_block_stage_seconds_sum", stage="authored"), 0.5)
+        self.assertAlmostEqual(value(m, "jam_block_stage_seconds_sum", stage="finalized"), 3.0)
+
+    def test_a_leading_dropped_event_only_sets_the_next_id(self):
+        conn = receiver.Connection(self.rx, "10.0.0.2")                  # a reconnect
+        conn.node_info(b"", {"net": "t", "run_id": "t-1", "node": "v1", "client": "lasair"},
+                       "self", codec.decode_node_info(node_info_bytes()))
+        conn.message(codec.encode_event("dropped", {"last_timestamp": 5, "count": 500}, 5, 2))
+        self.assertEqual(conn.next_id, 500)
+        self.assertEqual(value(self.m(), "jip3_dropped_events_total", node="v1"), 0)
+
     def test_pending_maps_are_bounded(self):
         for i in range(10):
             self.send("importing", {"slot": i, "outline": sender.outline(i)}, 1000 + i)

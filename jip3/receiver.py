@@ -107,6 +107,14 @@ class JamMetrics:
                                   "Blocks from other authors this node imported and executed.", JAM)
         self.import_seconds = m.histogram("jam_block_import_seconds",
                                           "From the start of an import to its execution.", JAM, sec)
+        age = (.01, .05, .1, .25, .5, 1, 2, 5, 10, 20, 30, 60, 120, 300, 600)
+        self.block_stage = m.histogram(
+            "jam_block_stage_seconds",
+            "Seconds from when this node first saw a block (it began authoring or importing it) to "
+            "each stage: authored, verified, executed, best (it became the best block) and "
+            "finalized (it became the finalized block: the time to finality). Exact for the block "
+            "each event names; a finality update names the newest finalized block.",
+            JAM + ("stage",), age)
         self.wp_received = m.counter("jam_wp_received_total",
                                      "Work-packages received from builders or primary guarantors.", JAM)
         self.wp_refused = m.counter("jam_wp_refused_total",
@@ -267,6 +275,8 @@ class Connection:
         cap = rx.max_pending
         self.authoring = Bounded(cap)       # "authoring" id -> ts
         self.importing = Bounded(cap)       # "importing" id -> ts
+        self.blocks = Bounded(cap)          # header hash -> {"seen": ts, "done": stages recorded}
+        self.block_of = Bounded(cap)        # "authoring"/"importing" id -> header hash
         self.packages = Bounded(cap)        # submission/sharing id -> {"prev": ts, "guarantee": ts}
 
     # labels used on every series of this node
@@ -332,9 +342,13 @@ class Connection:
         jm.events.labels(**self._l(event=ev.name)).inc()
         jm.last_event.labels(**self._l()).set(codec.unix_from_jce_us(ev.ts))
         if ev.disc == 0:
-            # the event after a "dropped" event E has the ID of E plus the number dropped
+            # the event after a "dropped" event E has the ID of E plus the number dropped.
+            # As the FIRST event of a connection it only sets the next ID ("the ID of the
+            # following event", e.g. after a reconnect): every event the node emitted before,
+            # delivered or not, so it is not a drop count.
             n = ev.fields["count"]
-            jm.dropped.labels(**self._l()).inc(n)
+            if eid > 0:
+                jm.dropped.labels(**self._l()).inc(n)
             self.next_id = eid + n
         try:
             self.derive(eid, ev)
@@ -353,6 +367,18 @@ class Connection:
             self.rx.jm.wp_stage.labels(**self._j(stage=stage)).observe((ts - p["prev"]) / 1e6)
         p["prev"] = ts
 
+    def _block_stage(self, h, ts, stage):
+        """A block reached [stage]: observe its age (once per stage and block)."""
+        b = self.blocks.get(h)
+        if b is None or stage in b["done"] or ts < b["seen"]:
+            return
+        b["done"].add(stage)
+        self.rx.jm.block_stage.labels(**self._j(stage=stage)).observe((ts - b["seen"]) / 1e6)
+
+    def _seen(self, h, ts):
+        if h not in self.blocks:
+            self.blocks.put(h, {"seen": ts, "done": set()})
+
     def derive(self, eid, ev):
         """The jam_* series this event feeds."""
         jm, f, d, ts = self.rx.jm, ev.fields, ev.disc, ev.ts
@@ -362,21 +388,37 @@ class Connection:
             jm.peers.labels(**self._j(role="other")).set(max(0, f["peers"] - validators))
         elif d == 11:
             jm.best_slot.labels(**self._j()).set(f["slot"])
+            self._block_stage(f["hash"], ts, "best")
         elif d == 12:
             jm.finalized_slot.labels(**self._j()).set(f["slot"])
+            self._block_stage(f["hash"], ts, "finalized")
+            self.blocks.pop(f["hash"], None)             # no stage follows finality
         elif d == 40:
             self.authoring.put(eid, ts)
         elif d == 41:
             self.authoring.pop(f["authoring"], None)
         elif d == 42:
             jm.authored.labels(**self._j()).inc()
+            start, h = self.authoring.get(f["authoring"]), f["outline"]["hash"]
+            if start is not None:
+                self._seen(h, start)
+                self.block_of.put(f["authoring"], h)
+                self._block_stage(h, ts, "authored")
         elif d == 43:
             self.importing.put(eid, ts)
+            self._seen(f["outline"]["hash"], ts)
+            self.block_of.put(eid, f["outline"]["hash"])
         elif d == 44:
             self.importing.pop(f["importing"], None)
+            self.block_of.pop(f["importing"], None)
+        elif d == 45:
+            h = self.block_of.get(f["importing"])
+            if h is not None:
+                self._block_stage(h, ts, "verified")
         elif d == 46:
             self.importing.pop(f["block"], None)
             self.authoring.pop(f["block"], None)
+            self.block_of.pop(f["block"], None)
         elif d == 47:
             start = self.importing.pop(f["block"], None)
             if start is not None:
@@ -384,6 +426,9 @@ class Connection:
                 if ts >= start:
                     jm.import_seconds.labels(**self._j()).observe((ts - start) / 1e6)
             self.authoring.pop(f["block"], None)
+            h = self.block_of.pop(f["block"], None)
+            if h is not None:
+                self._block_stage(h, ts, "executed")
         elif d == 28:
             jm.misbehaviour.labels(**self._j(peer=self.rx.peer_name(f["peer"]),
                                              reason=short_reason(f["reason"]))).inc()

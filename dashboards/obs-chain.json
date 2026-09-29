@@ -1040,6 +1040,354 @@
     "w": 12,
     "h": 8
    }
+  },
+  {
+   "type": "row",
+   "title": "Block life: how long a block takes to reach each stage (JIP-3, any client)",
+   "collapsed": false,
+   "panels": [],
+   "id": 13,
+   "gridPos": {
+    "x": 0,
+    "y": 31,
+    "w": 24,
+    "h": 1
+   }
+  },
+  {
+   "type": "text",
+   "title": "",
+   "transparent": true,
+   "options": {
+    "mode": "markdown",
+    "content": "**How long does a block take to be finalized, and where does the time go?** Each node's JIP-3 telemetry says when it began authoring or importing a block, when it verified and executed it, when it became the best block and when it became the finalized block. The receiver times each stage from the moment the node first saw the block (`jam_block_stage_seconds{stage}`). **Time to finality** is the finalized stage: sampled at every finality update, for the block it names. A number that grows run after run, or a stage that stops appearing, is where to look."
+   },
+   "id": 14,
+   "gridPos": {
+    "x": 0,
+    "y": 32,
+    "w": 24,
+    "h": 3
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Time to finality, median",
+   "description": "Half the finality updates in the range named a block younger than this.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "last_over_time((histogram_quantile(0.5, sum by (le) (increase(jam_block_stage_seconds_bucket{net=\"$net\",run_id=\"$run_id\",stage=\"finalized\"}[$__range]))))[$__range:$__interval] @ $at)",
+     "refId": "A",
+     "range": false,
+     "instant": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "decimals": 1,
+     "noValue": "no data",
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "text"
+     },
+     "unit": "s"
+    },
+    "overrides": []
+   },
+   "options": {
+    "graphMode": "none",
+    "colorMode": "background",
+    "textMode": "value",
+    "justifyMode": "center",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "id": 15,
+   "gridPos": {
+    "x": 0,
+    "y": 35,
+    "w": 8,
+    "h": 4
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Time to finality, slowest 1%",
+   "description": "99% of the finality updates in the range named a block younger than this.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "last_over_time((histogram_quantile(0.99, sum by (le) (increase(jam_block_stage_seconds_bucket{net=\"$net\",run_id=\"$run_id\",stage=\"finalized\"}[$__range]))))[$__range:$__interval] @ $at)",
+     "refId": "A",
+     "range": false,
+     "instant": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "decimals": 1,
+     "noValue": "no data",
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "text"
+     },
+     "unit": "s"
+    },
+    "overrides": []
+   },
+   "options": {
+    "graphMode": "none",
+    "colorMode": "background",
+    "textMode": "value",
+    "justifyMode": "center",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "id": 16,
+   "gridPos": {
+    "x": 8,
+    "y": 35,
+    "w": 8,
+    "h": 4
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Finality updates",
+   "description": "Finality updates the nodes reported in the range (0: none finalized, or no JIP-3).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "last_over_time((sum(increase(jam_block_stage_seconds_count{net=\"$net\",run_id=\"$run_id\",stage=\"finalized\"}[$__range])))[$__range:$__interval] @ $at)",
+     "refId": "A",
+     "range": false,
+     "instant": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "decimals": 0,
+     "noValue": "no data",
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "text"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "graphMode": "none",
+    "colorMode": "background",
+    "textMode": "value",
+    "justifyMode": "center",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "id": 17,
+   "gridPos": {
+    "x": 16,
+    "y": 35,
+    "w": 8,
+    "h": 4
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Time to finality per node (median solid, slowest 1% dashed)",
+   "description": "Seconds from a node first seeing a block to that block becoming its finalized block, over the last 5 minutes at each point.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "histogram_quantile(0.5, sum by (le, node, client) (rate(jam_block_stage_seconds_bucket{net=\"$net\",run_id=\"$run_id\",stage=\"finalized\"}[5m])))",
+     "legendFormat": "{{node}} \u00b7 {{client}} median",
+     "refId": "A",
+     "range": true
+    },
+    {
+     "expr": "histogram_quantile(0.99, sum by (le, node, client) (rate(jam_block_stage_seconds_bucket{net=\"$net\",run_id=\"$run_id\",stage=\"finalized\"}[5m])))",
+     "legendFormat": "{{node}} \u00b7 {{client}} p99",
+     "refId": "B",
+     "range": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "none",
+       "group": "A"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "unit": "s",
+     "decimals": 1,
+     "min": 0,
+     "links": [
+      {
+       "title": "Node detail: ${__field.labels.node}",
+       "targetBlank": false,
+       "url": "/d/obs-node?orgId=1&var-net=${net}&var-run_id=${run_id}&var-node=${__field.labels.node}&${__url_time_range}"
+      },
+      {
+       "title": "Logs of ${__field.labels.node} up to here (Explore)",
+       "targetBlank": true,
+       "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%7B%22datasource%22%3A%22loki%22%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__value.time}%22%7D%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bnet%3D%5C%22$net%5C%22%2Crun_id%3D%5C%22$run_id%5C%22%2Cnode%3D%5C%22${__field.labels.node}%5C%22%7D%22%7D%5D%7D%7D"
+      }
+     ]
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byRegexp",
+       "options": ".* p99$"
+      },
+      "properties": [
+       {
+        "id": "custom.lineStyle",
+        "value": {
+         "fill": "dash",
+         "dash": [
+          6,
+          4
+         ]
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 18,
+   "gridPos": {
+    "x": 0,
+    "y": 39,
+    "w": 12,
+    "h": 8
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Median age of a block at each stage",
+   "description": "Seconds from first seen to each stage, all nodes: authored (block production), verified and executed (import), best, finalized. The gaps between the lines are the phases.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "histogram_quantile(0.5, sum by (le) (rate(jam_block_stage_seconds_bucket{net=\"$net\",run_id=\"$run_id\",stage=\"authored\"}[5m])))",
+     "legendFormat": "authored",
+     "refId": "A",
+     "range": true
+    },
+    {
+     "expr": "histogram_quantile(0.5, sum by (le) (rate(jam_block_stage_seconds_bucket{net=\"$net\",run_id=\"$run_id\",stage=\"verified\"}[5m])))",
+     "legendFormat": "verified",
+     "refId": "B",
+     "range": true
+    },
+    {
+     "expr": "histogram_quantile(0.5, sum by (le) (rate(jam_block_stage_seconds_bucket{net=\"$net\",run_id=\"$run_id\",stage=\"executed\"}[5m])))",
+     "legendFormat": "executed",
+     "refId": "C",
+     "range": true
+    },
+    {
+     "expr": "histogram_quantile(0.5, sum by (le) (rate(jam_block_stage_seconds_bucket{net=\"$net\",run_id=\"$run_id\",stage=\"best\"}[5m])))",
+     "legendFormat": "best",
+     "refId": "D",
+     "range": true
+    },
+    {
+     "expr": "histogram_quantile(0.5, sum by (le) (rate(jam_block_stage_seconds_bucket{net=\"$net\",run_id=\"$run_id\",stage=\"finalized\"}[5m])))",
+     "legendFormat": "finalized",
+     "refId": "E",
+     "range": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "none",
+       "group": "A"
+      }
+     },
+     "color": {
+      "mode": "palette-classic"
+     },
+     "unit": "s",
+     "decimals": 2,
+     "min": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 19,
+   "gridPos": {
+    "x": 12,
+    "y": 39,
+    "w": 12,
+    "h": 8
+   }
   }
  ]
 }

@@ -306,6 +306,41 @@ def chain():
               ("sum(max by (node) (jam_node_up{%s}))" % SEL, "nodes answering JIP-2")],
              "Connected peers each node reports, and how many nodes answer the JIP-2 exporter.",
              decimals=0), 12, 8)
+
+    # ---- a block's life, from JIP-3 (any client that sends it) ------------------------
+    L.row("Block life: how long a block takes to reach each stage (JIP-3, any client)")
+    L.add(text(
+        "**How long does a block take to be finalized, and where does the time go?** Each node's "
+        "JIP-3 telemetry says when it began authoring or importing a block, when it verified and "
+        "executed it, when it became the best block and when it became the finalized block. The "
+        "receiver times each stage from the moment the node first saw the block "
+        "(`jam_block_stage_seconds{stage}`). **Time to finality** is the finalized stage: sampled "
+        "at every finality update, for the block it names. A number that grows run after run, or "
+        "a stage that stops appearing, is where to look."), 24, 3)
+    fin = 'jam_block_stage_seconds_bucket{%s,stage="finalized"}' % SEL
+    L.add(stat("Time to finality, median", "histogram_quantile(0.5, sum by (le) (increase(%s[$__range])))" % fin,
+               "Half the finality updates in the range named a block younger than this.",
+               unit="s", decimals=1), 8, 4)
+    L.add(stat("Time to finality, slowest 1%", "histogram_quantile(0.99, sum by (le) (increase(%s[$__range])))" % fin,
+               "99% of the finality updates in the range named a block younger than this.",
+               unit="s", decimals=1), 8, 4)
+    L.add(stat("Finality updates", 'sum(increase(jam_block_stage_seconds_count{%s,stage="finalized"}[$__range]))' % SEL,
+               "Finality updates the nodes reported in the range (0: none finalized, or no JIP-3).",
+               decimals=0), 8, 4)
+    L.add(ts("Time to finality per node (median solid, slowest 1% dashed)",
+             [("histogram_quantile(0.5, sum by (le, node, client) (rate(%s[5m])))" % fin, "{{node}} · {{client}} median"),
+              ("histogram_quantile(0.99, sum by (le, node, client) (rate(%s[5m])))" % fin, "{{node}} · {{client}} p99")],
+             "Seconds from a node first seeing a block to that block becoming its finalized block, "
+             "over the last 5 minutes at each point.", unit="s", decimals=1,
+             overrides=[{"matcher": {"id": "byRegexp", "options": ".* p99$"},
+                         "properties": [{"id": "custom.lineStyle", "value": {"fill": "dash", "dash": [6, 4]}}]}]),
+          12, 8)
+    L.add(ts("Median age of a block at each stage",
+             [('histogram_quantile(0.5, sum by (le) (rate(jam_block_stage_seconds_bucket{%s,stage="%s"}[5m])))'
+               % (SEL, st), st) for st in ("authored", "verified", "executed", "best", "finalized")],
+             "Seconds from first seen to each stage, all nodes: authored (block production), "
+             "verified and executed (import), best, finalized. The gaps between the lines are the "
+             "phases.", unit="s", decimals=2), 12, 8)
     return dashboard("obs-chain", "Chain health", L)
 
 

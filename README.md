@@ -241,7 +241,9 @@ EOF
 ```
 
 A push replaces the same-named metrics of that group only, so a job can push progress
-while it runs and results at the end. Push an info metric (`<job>_info{...} 1`) for the
+while it runs and results at the end. `obs push --replace` replaces the whole group in one
+step instead (a Pushgateway PUT): use it when each push is a complete snapshot, so a series
+the new push no longer has (a failure that was fixed) does not linger. Push an info metric (`<job>_info{...} 1`) for the
 configuration. Groups persist until deleted (`curl -X DELETE
 http://localhost:9091/metrics/job/soak/run_id/<id>/net/<net>`).
 

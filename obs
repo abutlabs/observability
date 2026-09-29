@@ -42,9 +42,10 @@ Grafana
         every dashboard with a run selector.
 
 Batch results
-    obs push JOB [--group k=v]... [FILE]
+    obs push JOB [--group k=v]... [--replace] [FILE]
         push Prometheus text (FILE, default stdin) to the Pushgateway, grouped by job and
-        the --group labels (e.g. run_id, net); same-named metrics in the group are replaced
+        the --group labels (e.g. run_id, net); same-named metrics in the group are replaced.
+        --replace: replace the whole group in one step, so series the push lacks are gone
 
 Configuration (environment): OBS_STATE (~/.cache/abutlabs-obs: targets, runs),
 OBS_PROJECT (compose project, obs), OBS_BIND (127.0.0.1), ports OBS_GRAFANA_PORT (3300),
@@ -592,8 +593,8 @@ def cmd_push(a):
     if not text.endswith("\n"):
         text += "\n"
     try:
-        http("POST", url("pushgateway") + path, raw=text.encode(), ctype="text/plain; version=0.0.4",
-             timeout=10)
+        http("PUT" if a.replace else "POST", url("pushgateway") + path, raw=text.encode(),
+             ctype="text/plain; version=0.0.4", timeout=10)
     except urllib.error.HTTPError as e:
         die("Pushgateway refused: %s %s" % (e.code, e.read().decode()[:300]), 1)
     except OSError as e:
@@ -669,6 +670,7 @@ def main(argv=None):
     p.add_argument("job")
     p.add_argument("file", nargs="?")
     p.add_argument("--group", action="append")
+    p.add_argument("--replace", action="store_true")
     p.set_defaults(fn=cmd_push)
     a = ap.parse_args(argv)
     return a.fn(a)

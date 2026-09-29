@@ -34,16 +34,21 @@ def run(cli, *argv):
 
 
 class Recorder(http.server.BaseHTTPRequestHandler):
-    """Records every POST (path, auth header, body) and answers 200."""
+    """Records every POST and PUT (path, auth header, body; the method in methods) and
+    answers 200."""
     posted = []
+    methods = []
 
     def do_POST(self):
         body = self.rfile.read(int(self.headers["Content-Length"]))
         Recorder.posted.append((self.path, self.headers.get("Authorization"), body))
+        Recorder.methods.append(self.command)
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
         self.wfile.write(b'{"id": 7}')
+
+    do_PUT = do_POST
 
     def log_message(self, *a):
         pass
@@ -54,6 +59,7 @@ def recorder():
     srv = http.server.HTTPServer(("127.0.0.1", 0), Recorder)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     Recorder.posted.clear()
+    Recorder.methods.clear()
     try:
         yield srv.server_port
     finally:
@@ -220,6 +226,21 @@ class Push(Base):
                                  "--group", "net=lasair-pj")[0], 0)
         (p, _, body), = Recorder.posted
         self.assertEqual(p, "/metrics/job/soak/run_id/lasair-pj-20260928T200000Z/net/lasair-pj")
+        self.assertEqual(body.decode(), text)
+        self.assertEqual(Recorder.methods, ["POST"])
+
+    def test_replace_puts_the_whole_group(self):
+        text = "# TYPE lasair_replay_sessions gauge\nlasair_replay_sessions 6\n"
+        with recorder() as port:
+            cli = load_cli({"OBS_PUSHGATEWAY_PORT": str(port)})
+            path = os.path.join(self.tmp.name, "m.txt")
+            with open(path, "w") as fh:
+                fh.write(text)
+            self.assertEqual(run(cli, "push", "lasair_replay", path, "--replace",
+                                 "--group", "run_id=replay-20260929T200000Z")[0], 0)
+        (p, _, body), = Recorder.posted
+        self.assertEqual(p, "/metrics/job/lasair_replay/run_id/replay-20260929T200000Z")
+        self.assertEqual(Recorder.methods, ["PUT"])
         self.assertEqual(body.decode(), text)
 
 

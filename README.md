@@ -44,14 +44,16 @@ is a stock image, and the JAM collectors are standard-library Python on `python:
 
 ## Learn it
 
-[**Learning Observability**](learning-observability/README.md), online at
-https://abutlabs.github.io/observability/, is a course on this stack for someone new to
-observability: the words it uses, each service, how JAM nodes of any client report into
-it, every dashboard and the question it answers, PromQL and LogQL, soak tests, and a real
-investigation of a failing lasair soak from symptom to fix. Its labs use the commands in
-this README. The lessons are markdown in
-[`learning-observability/content/`](learning-observability/content/), readable on GitHub
-as well.
+[**Learning Observability**](https://abutlabs.github.io/jam-learning/observability/), part
+of [jam-learning](https://abutlabs.github.io/jam-learning/), is a course on this stack for
+someone new to observability: the words it uses, each service, how JAM nodes of any client
+report into it, every dashboard and the question it answers, PromQL and LogQL, soak tests,
+and a real investigation of a failing soak from symptom to fix. Every lab runs on data you
+generate: you start the stack and a network with the commands in this README, then read
+what they report. Its sibling,
+[Learning Lasair](https://abutlabs.github.io/jam-learning/lasair/), teaches how a JAM
+client is built. The lessons are markdown in the
+[jam-learning repository](https://github.com/abutlabs/jam-learning).
 
 ## Architecture
 
@@ -441,7 +443,8 @@ the first `up`.
 | `dashgen/` | dashboard helpers and the platform generator |
 | `docs/metrics.md` | the `jam_*` metrics the dashboards read |
 | `tests/` | `python3 -m unittest discover -s tests` |
-| `learning-observability/` | the course ([Learn it](#learn-it)); `.github/workflows/pages.yml` publishes it |
+| `examples/fake_node.py` | the smallest thing the stack can scrape: a fake node serving three `jam_*` metrics |
+| `pages/` | the redirect from the course's old address to jam-learning |
 
 ## License
 

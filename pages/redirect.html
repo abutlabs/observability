@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Learning Observability has moved</title>
+<script>
+  // The course moved to jam-learning. Keep the page, query and anchor, so an old
+  // lesson.html?lesson=... link opens the same lesson.
+  (function () {
+    var rest = location.pathname.replace(/^\/observability\/?/, "");
+    location.replace("https://abutlabs.github.io/jam-learning/observability/" + rest + location.search + location.hash);
+  })();
+</script>
+<meta http-equiv="refresh" content="0; url=https://abutlabs.github.io/jam-learning/observability/">
+</head>
+<body>
+<p>Learning Observability has moved to
+<a href="https://abutlabs.github.io/jam-learning/observability/">abutlabs.github.io/jam-learning/observability/</a>.</p>
+</body>
+</html>

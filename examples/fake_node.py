@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""Lab 3: a fake JAM node that serves a few jam_* metrics on port 19615.
+"""A fake JAM node that serves a few jam_* metrics on port 19615: the smallest thing the
+stack can scrape. Lab 3 of Learning Observability registers it
+(https://abutlabs.github.io/jam-learning/observability/lesson.html?lesson=exercises/lab-3-register-a-process).
 
-    python3 learning-observability/exercises/fake_node.py      # Ctrl-C to stop
+    python3 examples/fake_node.py      # Ctrl-C to stop
 
 Its best slot starts at 100 and grows by one every 6 seconds; its finalized slot trails by
 two. It listens on all interfaces so that a container (Alloy) can reach it through

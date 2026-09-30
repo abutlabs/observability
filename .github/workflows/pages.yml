@@ -1,15 +1,15 @@
-# The course site, learning-observability/, on GitHub Pages:
-# https://abutlabs.github.io/observability/
-#
-# Builds with learning-observability/tools/build.sh (the same script a local preview uses)
-# and deploys the result. Needs the repository's Pages source set to "GitHub Actions".
-name: Course site
+# https://abutlabs.github.io/observability/ used to serve the course; the course now lives
+# on jam-learning (https://abutlabs.github.io/jam-learning/observability/). This publishes
+# pages/redirect.html as the front page, lesson.html and the 404 page, so every old link,
+# lesson.html?lesson=... included, lands on the same page there.
+# Needs the repository's Pages source set to "GitHub Actions".
+name: Course redirect
 
 on:
   push:
     branches: [main]
     paths:
-      - "learning-observability/**"
+      - "pages/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -18,7 +18,6 @@ permissions:
   pages: write
   id-token: write
 
-# one deployment at a time; a newer push waits rather than cancelling one mid-way
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -29,11 +28,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
-      - name: Build the site
-        run: learning-observability/tools/build.sh
+      - name: Build the redirect
+        run: |
+          mkdir _site
+          for page in index lesson 404; do cp pages/redirect.html "_site/$page.html"; done
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: learning-observability/_site
+          path: _site
 
   deploy:
     needs: build
